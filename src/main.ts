@@ -31,6 +31,7 @@ async function bootstrap(): Promise<void> {
     }),
   );
 
+  app.setGlobalPrefix('api');
   // Note: no global route prefix — endpoints live at their bare paths
   // (/auth/*, /products/*) and Swagger UI owns /api.
 
@@ -61,12 +62,12 @@ async function bootstrap(): Promise<void> {
     swaggerOptions: { persistAuthorization: true },
   };
   // Served at /api (the global prefix path).
-  SwaggerModule.setup('api', app, document, swaggerOptions);
+  SwaggerModule.setup('docs', app, document, swaggerOptions);
 
-  app.setGlobalPrefix('api');
   const port = config.get<number>('PORT', 3000);
   await app.listen(port);
-  logger.log(`Swagger docs available at http://localhost:${port}/api`);
+  logger.log(`Application is running on: http://localhost:${port}/api`);
+  logger.log(`Swagger docs available at http://localhost:${port}/docs`);
 }
 
 // eslint-disable-next-line @typescript-eslint/no-floating-promises
