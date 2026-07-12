@@ -41,5 +41,5 @@ export class QueryProductDto {
   @IsInt()
   @Min(1)
   @Max(100)
-  limit?: number = 20;
+  pageSize?: number = 20;
 }
