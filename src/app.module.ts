@@ -1,0 +1,36 @@
+import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { AuthModule } from './auth/auth.module';
+import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
+import { PrismaExceptionFilter } from './common/filters/prisma-exception.filter';
+import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
+import { RolesGuard } from './common/guards/roles.guard';
+import { TransformInterceptor } from './common/interceptors/transform.interceptor';
+import { PrismaModule } from './prisma/prisma.module';
+import { ProductModule } from './product/product.module';
+import { TokenModule } from './token/token.module';
+import { UserModule } from './user/user.module';
+
+@Module({
+  imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
+    PrismaModule,
+    UserModule,
+    TokenModule,
+    AuthModule,
+    ProductModule,
+  ],
+  providers: [
+    // Global authentication first, then role authorization.
+    { provide: APP_GUARD, useClass: JwtAuthGuard },
+    { provide: APP_GUARD, useClass: RolesGuard },
+    // Uniform success envelope.
+    { provide: APP_INTERCEPTOR, useClass: TransformInterceptor },
+    // Broad filter registered first; Prisma filter registered after so it
+    // is evaluated first for Prisma-specific errors.
+    { provide: APP_FILTER, useClass: AllExceptionsFilter },
+    { provide: APP_FILTER, useClass: PrismaExceptionFilter },
+  ],
+})
+export class AppModule {}

@@ -1,0 +1,134 @@
+// Prisma schema for the "centrix" game catalog API.
+// Prisma 7 — uses the new `prisma-client` generator (TypeScript output).
+// Docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  // Prisma 7: the connection URL no longer lives here. It is supplied to
+  // Migrate via prisma.config.ts and to the runtime client via a driver
+  // adapter (see PrismaService).
+  provider = "postgresql"
+}
+
+/// Application roles. Kept as an enum so the authorization layer (RolesGuard +
+/// @Roles) stays declarative; add new roles here without touching guards.
+enum Role {
+  ADMIN
+  CUSTOMER
+  STREAMER
+}
+
+/// Supported pricing currencies. New currencies can be added here and each
+/// product simply gains an extra ProductPrice row — no structural change.
+enum Currency {
+  VND
+  USD
+  CNY
+}
+
+/// A single game imported from SteamDB.
+model Product {
+  id          String    @id @default(uuid())
+  appId       Int       @unique // Steam AppID
+  name        String
+  description String?
+  imageUrl    String?
+  releaseDate DateTime?
+  developer   String?
+  publisher   String?
+
+  genres     String[] @default([])
+  // Broad gameplay classifications, e.g. Singleplayer / Multiplayer / Family.
+  categories String[] @default([])
+  // Steam tags preserved for search/filtering, e.g. Open World / RPG / Horror.
+  // Stored independently from `categories`; both are plain arrays now and can
+  // be migrated to normalized tables later without changing the API shape.
+  tags       String[] @default([])
+  platforms  String[] @default([])
+
+  invisible Boolean  @default(false) // true == soft-deleted / hidden from customers
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Multi-currency prices (one row per currency; always all three).
+  prices ProductPrice[]
+
+  // Downloadable content belonging to this game (zero or many).
+  dlcs DLC[]
+
+  // Products purchased by users (many-to-many).
+  owners User[] @relation("UserProducts")
+
+  @@index([invisible])
+  @@map("products")
+}
+
+/// A per-currency price for a product. Amounts use Decimal for exact monetary
+/// math. Every product owns exactly one row per supported currency.
+model ProductPrice {
+  id        String   @id @default(uuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  currency  Currency
+  amount    Decimal  @default(0) @db.Decimal(18, 4)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([productId, currency])
+  @@index([productId])
+  @@map("product_prices")
+}
+
+/// Downloadable content for a game. Belongs to exactly one Product.
+///
+/// The relation uses onDelete: Restrict so a Product that still has DLCs
+/// cannot be physically deleted — DLC records are never removed as a side
+/// effect of deleting/hiding a game (hiding is a soft-delete anyway).
+model DLC {
+  id        String   @id @default(uuid())
+  appId     Int      @unique // Steam AppID of the DLC
+  name      String
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([productId])
+  @@map("dlcs")
+}
+
+/// A customer account. Deliberately minimal — no extra profile data stored.
+model User {
+  id           String   @id @default(uuid())
+  username     String   @unique
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(CUSTOMER)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Products this user has purchased (many-to-many).
+  products Product[] @relation("UserProducts")
+
+  // Refresh tokens issued to this user.
+  tokens Token[]
+
+  @@map("users")
+}
+
+/// A stored refresh token. Revoking a token == deleting its row.
+model Token {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  createdAt DateTime @default(now())
+  expiredAt DateTime
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("tokens")
+}
