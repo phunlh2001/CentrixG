@@ -11,17 +11,23 @@ import { PrismaModule } from './prisma/prisma.module';
 import { ProductModule } from './product/product.module';
 import { TokenModule } from './token/token.module';
 import { UserModule } from './user/user.module';
+import { PrismaHealthIndicator } from './prisma-health.indicator';
+import { AppController } from './app.controller';
+import { TerminusModule } from '@nestjs/terminus';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    TerminusModule,
     PrismaModule,
     UserModule,
     TokenModule,
     AuthModule,
     ProductModule,
   ],
+  controllers: [AppController],
   providers: [
+    PrismaHealthIndicator,
     // Global authentication first, then role authorization.
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
@@ -31,6 +37,6 @@ import { UserModule } from './user/user.module';
     // is evaluated first for Prisma-specific errors.
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
     { provide: APP_FILTER, useClass: PrismaExceptionFilter },
-  ],
+  ]
 })
 export class AppModule {}

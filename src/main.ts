@@ -55,9 +55,9 @@ async function bootstrap(): Promise<void> {
   // Served at /api (the global prefix path).
   SwaggerModule.setup('api', app, document, swaggerOptions);
 
+  app.setGlobalPrefix('api');
   const port = config.get<number>('PORT', 3000);
   await app.listen(port);
-  logger.log(`Centrix API running on http://localhost:${port}`);
   logger.log(`Swagger docs available at http://localhost:${port}/api`);
 }
 
