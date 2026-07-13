@@ -7,8 +7,7 @@ import { generateOpaqueToken } from '../common/utils/token.util';
 import { hashPassword, verifyPassword } from '../common/utils/password.util';
 import { TokenService } from '../token/token.service';
 import { UserService } from '../user/user.service';
-import { AuthTokensDto, LoginDto } from '../shared/dto/auth';
-import { RegisterDto } from '../shared/dto/user';
+import { AuthTokensDto, LoginDto, RegisterDto } from '@app/shared';
 
 @Injectable()
 export class AuthService {

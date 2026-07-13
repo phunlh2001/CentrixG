@@ -9,10 +9,8 @@ import {
 } from '@nestjs/swagger';
 import { Public } from '../common/decorators/public.decorator';
 import { MessageResponseDto } from '../common/dto/message-response.dto';
-import { AuthTokensDto, LoginDto } from '../shared/dto/auth';
-import { RefreshTokenDto, RevokeTokenDto } from '../shared/dto/token';
-import { RegisterDto } from '../shared/dto/user';
 import { AuthService } from './auth.service';
+import { AuthTokensDto, LoginDto, RefreshTokenDto, RegisterDto, RevokeTokenDto } from '@app/shared';
 
 @ApiTags('Auth')
 @Controller('auth')

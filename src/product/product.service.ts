@@ -2,22 +2,21 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
-} from '@nestjs/common';
-import { Currency, Prisma } from '../prisma/prisma-client';
-import { PrismaService } from '../prisma/prisma.service';
+} from "@nestjs/common";
+import { Currency, Prisma } from "../prisma/prisma-client";
+import { PrismaService } from "../prisma/prisma.service";
 import {
+  CreateDlcDto,
   CreateManyProductsDto,
   CreateProductDto,
   DeleteManyProductsDto,
-  PricingDto,
-  QueryProductDto,
-  UpdateProductDto,
-} from '../shared/dto/product';
-import {
   DlcModel,
+  PricingDto,
   PricingModel,
   ProductModel,
-} from '../shared/models/product';
+  QueryProductDto,
+  UpdateProductDto,
+} from "@app/shared";
 
 export interface PaginatedResult<T> {
   items: T[];
@@ -59,7 +58,7 @@ export class ProductService {
    * the whole batch is rolled back.
    */
   async createMany(dto: CreateManyProductsDto): Promise<ProductModel[]> {
-    const appIds = dto.products.map((p) => p.appId);
+    const appIds = dto.products.map((p: CreateProductDto) => p.appId);
     this.assertNoDuplicateAppIds(appIds);
 
     const created = await this.prisma.$transaction(async (tx) => {
@@ -72,13 +71,13 @@ export class ProductService {
         throw new ConflictException(
           `These appIds already exist: ${clashes
             .map((c) => c.appId)
-            .join(', ')}`,
+            .join(", ")}`,
         );
       }
 
       // createMany doesn't support nested writes, so create sequentially.
       return Promise.all(
-        dto.products.map((product) =>
+        dto.products.map((product: CreateProductDto) =>
           tx.product.create({
             data: this.toCreateInput(product),
             include: PRODUCT_INCLUDE,
@@ -87,7 +86,7 @@ export class ProductService {
       );
     });
 
-    return created.map((p) => this.toModel(p));
+    return created.map((p: ProductWithRelations) => this.toModel(p));
   }
 
   /**
@@ -105,7 +104,7 @@ export class ProductService {
     const where: Prisma.ProductWhereInput = {
       ...(query.includeHidden ? {} : { invisible: false }),
       ...(query.search
-        ? { name: { contains: query.search, mode: 'insensitive' } }
+        ? { name: { contains: query.search, mode: "insensitive" } }
         : {}),
     };
 
@@ -114,7 +113,7 @@ export class ProductService {
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
         include: PRODUCT_INCLUDE,
       }),
       this.prisma.product.count({ where }),
@@ -229,7 +228,7 @@ export class ProductService {
       });
 
       if (alreadyOwned) {
-        throw new ConflictException('Product already owned by this user');
+        throw new ConflictException("Product already owned by this user");
       }
 
       await tx.user.update({
@@ -260,7 +259,7 @@ export class ProductService {
       categories: product.categories,
       tags: product.tags,
       platforms: product.platforms,
-      dlcs: product.dlcs.map((d): DlcModel => ({
+      dlcs: product.dlcs.map((d: DlcModel): DlcModel => ({
         id: d.id,
         appId: d.appId,
         name: d.name,
@@ -274,9 +273,9 @@ export class ProductService {
     };
   }
 
-  private toPricing(prices: ProductWithRelations['prices']): PricingModel {
+  private toPricing(prices: ProductWithRelations["prices"]): PricingModel {
     const amountOf = (currency: Currency): string =>
-      prices.find((p) => p.currency === currency)?.amount.toString() ?? '0';
+      prices.find((p) => p.currency === currency)?.amount.toString() ?? "0";
 
     return {
       vnd: amountOf(Currency.VND),
@@ -308,7 +307,7 @@ export class ProductService {
     }
     if (dupes.size > 0) {
       throw new ConflictException(
-        `Duplicate appIds in request: ${[...dupes].join(', ')}`,
+        `Duplicate appIds in request: ${[...dupes].join(", ")}`,
       );
     }
   }
@@ -346,7 +345,10 @@ export class ProductService {
       ...(dto.dlcs && dto.dlcs.length > 0
         ? {
             dlcs: {
-              create: dto.dlcs.map((d) => ({ appId: d.appId, name: d.name })),
+              create: dto.dlcs.map((d: CreateDlcDto) => ({
+                appId: d.appId,
+                name: d.name,
+              })),
             },
           }
         : {}),
