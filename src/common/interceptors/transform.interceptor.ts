@@ -1,3 +1,4 @@
+import { ApiResponse } from '@app/shared/common/api-response';
 import {
   CallHandler,
   ExecutionContext,
@@ -7,17 +8,6 @@ import {
 import { Request } from 'express';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
-
-/**
- * Standard envelope wrapping every successful response.
- */
-export interface ApiResponse<T> {
-  success: true;
-  statusCode: number;
-  path: string;
-  timestamp: string;
-  data: T;
-}
 
 /**
  * Wraps controller return values in a consistent response envelope.
@@ -39,9 +29,6 @@ export class TransformInterceptor<T>
       map((data) => ({
         success: true as const,
         statusCode,
-        path: request.url,
-        // ISO timestamp; deterministic construction avoids surprises in tests.
-        timestamp: new Date().toISOString(),
         data,
       })),
     );
