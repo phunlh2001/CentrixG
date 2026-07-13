@@ -66,8 +66,9 @@ export class ProductController {
   // --- Admin: write operations --------------------------------------------
 
   @Post("bulk")
-  @Roles(Role.ADMIN)
-  @ApiOperation({ summary: "Create many products in one transaction (admin)" })
+  // @Roles(Role.ADMIN)
+  @Public()
+  @ApiOperation({ summary: "Create many products in one transaction" })
   @ApiCreatedResponse({ type: [ProductModel] })
   @ApiConflictResponse({ description: "One or more appIds already exist" })
   createMany(@Body() dto: CreateManyProductsDto): Promise<ProductModel[]> {
