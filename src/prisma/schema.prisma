@@ -123,13 +123,14 @@ model ManifestFile {
   manifestData String?  @db.Text // Encrypted/binary payload or manifest JSON
   luaScript    String?  @db.Text // Lua script content for Steam unlocker
   version      Int      @default(1)
-  isActive     Boolean  @default(true)
+  isEnabled    Boolean  @default(true) // soft delete flag (true == enabled, false == deleted/disabled)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   userGames UserGame[]
 
   @@index([appId])
+  @@index([isEnabled])
   @@map("manifest_files")
 }
 

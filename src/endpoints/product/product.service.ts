@@ -3,8 +3,8 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import { Currency, Prisma } from "../prisma/prisma-client";
-import { PrismaService } from "../prisma/prisma.service";
+import { Currency, Prisma } from "../../prisma/prisma-client";
+import { PrismaService } from "../../prisma/prisma.service";
 import {
   CreateDlcDto,
   CreateManyProductsDto,

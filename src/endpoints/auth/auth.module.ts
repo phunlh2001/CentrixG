@@ -2,13 +2,13 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
-import { TokenModule } from '../token/token.module';
-import { UserModule } from '../user/user.module';
+import { TokenModule } from '../../services/token/token.module';
+import { UserModule } from '../../services/user/user.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 
-import { MailModule } from '../mail/mail.module';
+import { MailModule } from '../../services/mail/mail.module';
 import { CONFIG_ENV } from '@app/common/constants';
 
 @Module({

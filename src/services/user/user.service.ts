@@ -1,10 +1,10 @@
+import { PrismaService } from '@app/prisma/prisma.service';
 import {
   ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, User } from '../prisma/prisma-client';
-import { PrismaService } from '../prisma/prisma.service';
+import { Prisma, User } from '@prisma/client';
 
 /**
  * Encapsulates all persistence logic for {@link User} records.

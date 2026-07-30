@@ -17,8 +17,8 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import { Public } from '../common/decorators/public.decorator';
-import { MessageResponseDto } from '../common/dto/message-response.dto';
+import { Public } from '../../common/decorators/public.decorator';
+import { MessageResponseDto } from '../../common/dto/message-response.dto';
 import { AuthService } from './auth.service';
 import {
   AuthTokensDto,

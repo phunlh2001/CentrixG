@@ -20,23 +20,24 @@ import {
   ApiOperation,
   ApiTags,
 } from "@nestjs/swagger";
-import { Role } from "../prisma/prisma-client";
-import { CurrentUser } from "../common/decorators/current-user.decorator";
-import { Public } from "../common/decorators/public.decorator";
-import { Roles } from "../common/decorators/roles.decorator";
+import { Role } from "../../prisma/prisma-client";
+import { CurrentUser } from "../../common/decorators/current-user.decorator";
+import { Public } from "../../common/decorators/public.decorator";
+import { Roles } from "../../common/decorators/roles.decorator";
 import {
   BulkResultDto,
   MessageResponseDto,
-} from "../common/dto/message-response.dto";
-import { AuthenticatedUser } from "../common/interfaces/authenticated-user.interface";
+} from "../../common/dto/message-response.dto";
+import { AuthenticatedUser } from "../../common/interfaces/authenticated-user.interface";
 import {
   CreateManyProductsDto,
   CreateProductDto,
   DeleteManyProductsDto,
+  PaginatedProductsModel,
+  ProductModel,
   QueryProductDto,
   UpdateProductDto,
-} from "../shared/dto/product";
-import { PaginatedProductsModel, ProductModel } from "../shared/models/product";
+} from "@app/shared";
 import { PaginatedResult, ProductService } from "./product.service";
 
 @ApiTags("Products")

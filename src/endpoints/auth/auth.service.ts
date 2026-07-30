@@ -9,21 +9,21 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { Role, User } from '../prisma/prisma-client';
-import { PrismaService } from '../prisma/prisma.service';
-import { JwtPayload } from '../common/interfaces/authenticated-user.interface';
-import { generateOpaqueToken } from '../common/utils/token.util';
-import { hashPassword, verifyPassword } from '../common/utils/password.util';
-import { TokenService } from '../token/token.service';
-import { UserService } from '../user/user.service';
-import { MessageResponseDto } from '../common/dto/message-response.dto';
+import { Role, User } from '../../prisma/prisma-client';
+import { PrismaService } from '../../prisma/prisma.service';
+import { JwtPayload } from '../../common/interfaces/authenticated-user.interface';
+import { generateOpaqueToken } from '../../common/utils/token.util';
+import { hashPassword, verifyPassword } from '../../common/utils/password.util';
+import { TokenService } from '../../services/token/token.service';
+import { UserService } from '../../services/user/user.service';
+import { MessageResponseDto } from '../../common/dto/message-response.dto';
 import {
   AuthTokensDto,
   LoginDto,
   RegisterDto,
   VerifyCodeDto,
 } from '@app/shared';
-import { MailService } from '../mail/mail.service';
+import { MailService } from '../../services/mail/mail.service';
 import { CONFIG_ENV } from '@app/common/constants';
 
 @Injectable()

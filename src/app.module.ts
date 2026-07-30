@@ -1,22 +1,23 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
-import { AuthModule } from './auth/auth.module';
+import { AuthModule } from './endpoints/auth/auth.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { PrismaExceptionFilter } from './common/filters/prisma-exception.filter';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { PrismaModule } from './prisma/prisma.module';
-import { ProductModule } from './product/product.module';
-import { TokenModule } from './token/token.module';
-import { UserModule } from './user/user.module';
+import { ProductModule } from './endpoints/product/product.module';
 import { PrismaHealthIndicator } from './prisma-health.indicator';
 import { AppController } from './app.controller';
 import { TerminusModule } from '@nestjs/terminus';
 
 import { ScheduleModule } from '@nestjs/schedule';
-import { MailModule } from './mail/mail.module';
+import { MailModule } from './services/mail/mail.module';
+import { ManifestModule } from './endpoints/manifest/manifest.module';
+import { UserModule } from './services/user/user.module';
+import { TokenModule } from './services/token/token.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { MailModule } from './mail/mail.module';
     AuthModule,
     ProductModule,
     MailModule,
+    ManifestModule,
   ],
   controllers: [AppController],
   providers: [
