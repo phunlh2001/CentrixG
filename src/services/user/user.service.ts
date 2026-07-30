@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, User } from '@prisma/client';
+import { Prisma, User } from '@app/prisma/prisma-client';
 
 /**
  * Encapsulates all persistence logic for {@link User} records.

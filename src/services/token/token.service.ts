@@ -1,6 +1,6 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '@app/prisma/prisma.service';
-import { Token } from '@prisma/client';
+import { Token } from '@app/prisma/prisma-client';
 
 /**
  * Manages persisted refresh tokens.
