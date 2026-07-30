@@ -38,3 +38,5 @@ yarn-error.log*
 *.db
 # Generated Prisma 7 client (regenerated via `yarn postinstall` / `yarn prisma generate`)
 /src/generated
+
+.agents
