@@ -15,15 +15,20 @@ import { PrismaHealthIndicator } from './prisma-health.indicator';
 import { AppController } from './app.controller';
 import { TerminusModule } from '@nestjs/terminus';
 
+import { ScheduleModule } from '@nestjs/schedule';
+import { MailModule } from './mail/mail.module';
+
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    ScheduleModule.forRoot(),
     TerminusModule,
     PrismaModule,
     UserModule,
     TokenModule,
     AuthModule,
     ProductModule,
+    MailModule,
   ],
   controllers: [AppController],
   providers: [

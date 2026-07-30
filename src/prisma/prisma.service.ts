@@ -7,6 +7,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from './prisma-client';
+import { CONFIG_ENV } from '@app/common/constants';
 
 /**
  * Thin wrapper around the Prisma 7 generated client that manages the
@@ -26,7 +27,7 @@ export class PrismaService
 
   constructor(config: ConfigService) {
     super({
-      adapter: new PrismaPg(config.getOrThrow<string>('DATABASE_URL')),
+      adapter: new PrismaPg(config.getOrThrow<string>(CONFIG_ENV.dbUrl)),
     });
   }
 

@@ -8,18 +8,22 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 
+import { MailModule } from '../mail/mail.module';
+import { CONFIG_ENV } from '@app/common/constants';
+
 @Module({
   imports: [
     UserModule,
     TokenModule,
+    MailModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
-        secret: config.getOrThrow<string>('JWT_ACCESS_SECRET'),
+        secret: config.getOrThrow<string>(CONFIG_ENV.jwtAccessSecret),
         signOptions: {
-          expiresIn: config.get<string>('JWT_ACCESS_EXPIRES_IN', '15m'),
+          expiresIn: config.get<string>(CONFIG_ENV.jwtAccessExpiresIn, '15m'),
         },
       }),
     }),

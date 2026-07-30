@@ -60,8 +60,17 @@ export class ProductModel {
   @ApiProperty({ type: [DlcModel], description: 'Downloadable content.' })
   dlcs: DlcModel[];
 
+  @ApiProperty({ example: false, description: 'True if disabled from app display' })
+  disabled: boolean;
+
   @ApiProperty({ example: false })
   invisible: boolean;
+
+  @ApiProperty({ nullable: true })
+  scrapedAt: Date | null;
+
+  @ApiProperty({ nullable: true })
+  sourceUrl: string | null;
 
   @ApiProperty()
   createdAt: Date;

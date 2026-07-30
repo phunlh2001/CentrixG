@@ -19,11 +19,19 @@ export class TokenService {
    */
   async save(
     userId: string,
-    token: string,
+    accessTokenId: string,
+    refreshToken: string,
     expiredAt: Date,
+    ipAddress?: string,
   ): Promise<Token> {
     return this.prisma.token.create({
-      data: { token, userId, expiredAt },
+      data: {
+        userId,
+        token: accessTokenId,
+        refreshToken,
+        expiredAt,
+        ipAddress: ipAddress || null,
+      },
     });
   }
 
@@ -31,8 +39,10 @@ export class TokenService {
    * Resolves a stored refresh token, enforcing existence and expiration.
    * Expired tokens are proactively deleted before rejecting.
    */
-  async validateOrThrow(token: string): Promise<Token> {
-    const stored = await this.prisma.token.findUnique({ where: { token } });
+  async validateOrThrow(refreshToken: string): Promise<Token> {
+    const stored = await this.prisma.token.findUnique({
+      where: { refreshToken },
+    });
 
     if (!stored) {
       throw new UnauthorizedException('Refresh token not recognized');
@@ -52,8 +62,8 @@ export class TokenService {
    * Revokes (deletes) a single refresh token. Idempotent: revoking an
    * already-removed token succeeds silently.
    */
-  async revoke(token: string): Promise<void> {
-    await this.prisma.token.deleteMany({ where: { token } });
+  async revoke(refreshToken: string): Promise<void> {
+    await this.prisma.token.deleteMany({ where: { refreshToken } });
   }
 
   /**
@@ -68,15 +78,23 @@ export class TokenService {
    * one is created in a single transaction.
    */
   async rotate(
-    oldToken: string,
+    oldRefreshToken: string,
     userId: string,
-    newToken: string,
+    newAccessTokenId: string,
+    newRefreshToken: string,
     expiredAt: Date,
+    ipAddress?: string,
   ): Promise<Token> {
     const [, created] = await this.prisma.$transaction([
-      this.prisma.token.deleteMany({ where: { token: oldToken } }),
+      this.prisma.token.deleteMany({ where: { refreshToken: oldRefreshToken } }),
       this.prisma.token.create({
-        data: { token: newToken, userId, expiredAt },
+        data: {
+          token: newAccessTokenId,
+          refreshToken: newRefreshToken,
+          userId,
+          expiredAt,
+          ipAddress: ipAddress || null,
+        },
       }),
     ]);
 

@@ -268,6 +268,9 @@ export class ProductService {
         updatedAt: d.updatedAt,
       })),
       invisible: product.invisible,
+      disabled: product.disabled,
+      scrapedAt: product.scrapedAt,
+      sourceUrl: product.sourceUrl,
       createdAt: product.createdAt,
       updatedAt: product.updatedAt,
     };

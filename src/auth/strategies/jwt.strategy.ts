@@ -7,6 +7,7 @@ import {
   JwtPayload,
 } from '../../common/interfaces/authenticated-user.interface';
 import { UserService } from '../../user/user.service';
+import { CONFIG_ENV } from '@app/common/constants';
 
 /**
  * Validates access tokens presented as `Authorization: Bearer <jwt>`.
@@ -21,7 +22,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: config.getOrThrow<string>('JWT_ACCESS_SECRET'),
+      secretOrKey: config.getOrThrow<string>(CONFIG_ENV.jwtAccessSecret),
     });
   }
 

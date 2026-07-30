@@ -40,3 +40,4 @@ yarn-error.log*
 /src/generated
 
 .agents
+src/prisma/seed.ts

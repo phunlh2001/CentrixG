@@ -21,6 +21,6 @@ export default defineConfig({
   },
   migrations: {
     path: path.join('src', 'prisma', 'migrations'),
-    // No `seed` configured — the database starts empty after migrations.
+    seed: 'ts-node src/prisma/seed.ts',
   },
 });

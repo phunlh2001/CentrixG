@@ -19,4 +19,7 @@ export class UserModel {
 
   @ApiProperty({ enum: Role, example: Role.CUSTOMER })
   role: Role;
+
+  @ApiProperty({ example: false, description: 'True if account is restricted by administrator' })
+  isBlock: boolean;
 }

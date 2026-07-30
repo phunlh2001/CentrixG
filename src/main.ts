@@ -7,6 +7,7 @@ import {
   SwaggerModule,
 } from '@nestjs/swagger';
 import { AppModule } from './app.module';
+import { CONFIG_ENV } from './common/constants';
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule, { bufferLogs: false });
@@ -64,7 +65,7 @@ async function bootstrap(): Promise<void> {
   // Served at /api (the global prefix path).
   SwaggerModule.setup('docs', app, document, swaggerOptions);
 
-  const port = config.get<number>('PORT', 3000);
+  const port = config.get<number>(CONFIG_ENV.port, 3000);
   await app.listen(port);
   logger.log(`Application is running on: http://localhost:${port}/api`);
   logger.log(`Swagger docs available at http://localhost:${port}/docs`);

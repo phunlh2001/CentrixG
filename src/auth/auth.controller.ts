@@ -1,7 +1,17 @@
-import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import {
+  Body,
+  Controller,
+  HttpCode,
+  HttpStatus,
+  Ip,
+  Post,
+} from '@nestjs/common';
+import {
+  ApiBadRequestResponse,
   ApiConflictResponse,
   ApiCreatedResponse,
+  ApiForbiddenResponse,
+  ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
@@ -10,7 +20,14 @@ import {
 import { Public } from '../common/decorators/public.decorator';
 import { MessageResponseDto } from '../common/dto/message-response.dto';
 import { AuthService } from './auth.service';
-import { AuthTokensDto, LoginDto, RefreshTokenDto, RegisterDto, RevokeTokenDto } from '@app/shared';
+import {
+  AuthTokensDto,
+  LoginDto,
+  RefreshTokenDto,
+  RegisterDto,
+  RevokeTokenDto,
+  VerifyCodeDto,
+} from '@app/shared';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -20,11 +37,34 @@ export class AuthController {
   @Public()
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Register a new customer account' })
-  @ApiCreatedResponse({ type: AuthTokensDto })
+  @ApiOperation({
+    summary:
+      'Register a new customer account (unverified) and dispatch a 6-digit HTML email verification code via SMTP (valid 10 mins)',
+  })
+  @ApiCreatedResponse({ type: MessageResponseDto })
   @ApiConflictResponse({ description: 'Username or email already in use' })
-  register(@Body() dto: RegisterDto): Promise<AuthTokensDto> {
-    return this.authService.register(dto);
+  register(
+    @Body() dto: RegisterDto,
+    @Ip() ipAddress: string,
+  ): Promise<MessageResponseDto> {
+    return this.authService.register(dto, ipAddress || '127.0.0.1');
+  }
+
+  @Public()
+  @Post('verify-code')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Confirm registration by submitting the 6-digit verification code within 10 minutes. If expired, removes account from DB.',
+  })
+  @ApiOkResponse({ type: AuthTokensDto })
+  @ApiBadRequestResponse({ description: 'Invalid verification code or code expired (>10 mins)' })
+  @ApiNotFoundResponse({ description: 'Account not found' })
+  verifyCode(
+    @Body() dto: VerifyCodeDto,
+    @Ip() ipAddress: string,
+  ): Promise<AuthTokensDto> {
+    return this.authService.verifyCode(dto, ipAddress || '127.0.0.1');
   }
 
   @Public()
@@ -32,9 +72,13 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Authenticate and receive access/refresh tokens' })
   @ApiOkResponse({ type: AuthTokensDto })
-  @ApiUnauthorizedResponse({ description: 'Invalid email or password' })
-  login(@Body() dto: LoginDto): Promise<AuthTokensDto> {
-    return this.authService.login(dto);
+  @ApiUnauthorizedResponse({ description: 'Invalid email or password / Email unverified' })
+  @ApiForbiddenResponse({ description: 'Account blocked or weekly login limit reached' })
+  login(
+    @Body() dto: LoginDto,
+    @Ip() ipAddress: string,
+  ): Promise<AuthTokensDto> {
+    return this.authService.login(dto, ipAddress || '127.0.0.1');
   }
 
   @Public()
@@ -45,8 +89,12 @@ export class AuthController {
   })
   @ApiOkResponse({ type: AuthTokensDto })
   @ApiUnauthorizedResponse({ description: 'Refresh token invalid or expired' })
-  refresh(@Body() dto: RefreshTokenDto): Promise<AuthTokensDto> {
-    return this.authService.refresh(dto.refreshToken);
+  @ApiForbiddenResponse({ description: 'Account restricted by administrator' })
+  refresh(
+    @Body() dto: RefreshTokenDto,
+    @Ip() ipAddress: string,
+  ): Promise<AuthTokensDto> {
+    return this.authService.refresh(dto.refreshToken, ipAddress || '127.0.0.1');
   }
 
   @Public()
