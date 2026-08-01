@@ -1,11 +1,13 @@
 import { Module } from '@nestjs/common';
 import { UserService } from './user.service';
+import { UserController } from '../../endpoints/user/user.controller';
 
 /**
- * Owns user persistence. Exports UserService so Auth and Product modules
- * can reuse it (no duplicated query logic).
+ * Owns user persistence and UserController endpoints. Exports UserService
+ * so Auth and Product modules can reuse it.
  */
 @Module({
+  controllers: [UserController],
   providers: [UserService],
   exports: [UserService],
 })

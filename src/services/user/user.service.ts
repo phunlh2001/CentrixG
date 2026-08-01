@@ -144,4 +144,83 @@ export class UserService {
       include: { products: true },
     });
   }
+
+  /**
+   * Retrieves all rented games (user_games) for a specific user, including
+   * product details, pricing, DLCs, and active manifest file info.
+   */
+  async getUserGames(userId: string) {
+    const userGames = await this.prisma.userGame.findMany({
+      where: { userId },
+      include: {
+        product: {
+          include: {
+            prices: true,
+            dlcs: true,
+          },
+        },
+        manifest: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return userGames.map((ug) => ({
+      id: ug.id,
+      userId: ug.userId,
+      productId: ug.productId,
+      product: {
+        id: ug.product.id,
+        appId: ug.product.appId,
+        name: ug.product.name,
+        description: ug.product.description,
+        imageUrl: ug.product.imageUrl,
+        releaseDate: ug.product.releaseDate,
+        developer: ug.product.developer,
+        publisher: ug.product.publisher,
+        genres: ug.product.genres,
+        categories: ug.product.categories,
+        tags: ug.product.tags,
+        platforms: ug.product.platforms,
+        pricing: {
+          vnd:
+            ug.product.prices
+              .find((p) => p.currency === 'VND')
+              ?.amount.toString() ?? '0',
+          usd:
+            ug.product.prices
+              .find((p) => p.currency === 'USD')
+              ?.amount.toString() ?? '0',
+          cny:
+            ug.product.prices
+              .find((p) => p.currency === 'CNY')
+              ?.amount.toString() ?? '0',
+        },
+        dlcs: ug.product.dlcs.map((d) => ({
+          id: d.id,
+          appId: d.appId,
+          name: d.name,
+        })),
+      },
+      manifestId: ug.manifestId,
+      manifest: ug.manifest
+        ? {
+            id: ug.manifest.id,
+            appId: ug.manifest.appId,
+            depotId: ug.manifest.depotId,
+            manifestId: ug.manifest.manifestId,
+            manifestData: ug.manifest.manifestData,
+            luaScript: ug.manifest.luaScript,
+            version: ug.manifest.version,
+            isEnabled: ug.manifest.isEnabled,
+          }
+        : null,
+      rentedAt: ug.rentedAt,
+      expiresAt: ug.expiresAt,
+      status: ug.status,
+      rentalPrice: ug.rentalPrice.toString(),
+      rentalCurrency: ug.rentalCurrency,
+      createdAt: ug.createdAt,
+      updatedAt: ug.updatedAt,
+    }));
+  }
 }
