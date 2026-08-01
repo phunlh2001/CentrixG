@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -19,6 +20,7 @@ import {
   PricingDto,
   PricingModel,
   ProductModel,
+  PurchaseManyProductsDto,
   QueryProductDto,
   UpdateProductDto,
 } from "@app/shared";
@@ -217,91 +219,156 @@ export class ProductService {
   }
 
   /**
-   * Records a product purchase: links product to user, populates user_games rental entry
-   * (with active manifest if present) and records transaction ledger in bills table.
+   * Records a bulk purchase of multiple products for a user in a single atomic transaction.
+   * Connects all products to user's library, populates user_games rental entries for each product,
+   * and records a single consolidated bill transaction in the bills table.
    */
-  async purchase(userId: string, productId: string): Promise<ProductModel> {
-    const product = await this.prisma.$transaction(async (tx) => {
-      const existing = await tx.product.findUnique({
-        where: { id: productId },
+  async purchase(
+    userId: string,
+    dto: PurchaseManyProductsDto,
+  ): Promise<ProductModel[]> {
+    if (!dto.productIds || dto.productIds.length === 0) {
+      throw new BadRequestException("Product IDs list cannot be empty");
+    }
+
+    const uniqueProductIds = Array.from(new Set(dto.productIds));
+
+    const purchasedProducts = await this.prisma.$transaction(async (tx) => {
+      // 1. Fetch all requested products with pricing
+      const products = await tx.product.findMany({
+        where: { id: { in: uniqueProductIds } },
         include: PRODUCT_INCLUDE,
       });
 
-      if (!existing || existing.invisible) {
-        throw new NotFoundException(`Product ${productId} not available`);
+      if (products.length !== uniqueProductIds.length) {
+        const foundIds = new Set(products.map((p) => p.id));
+        const missing = uniqueProductIds.filter((id) => !foundIds.has(id));
+        throw new NotFoundException(
+          `These products are not available: ${missing.join(", ")}`,
+        );
       }
 
-      // Check direct ownership or active rental
+      // Check if any product is invisible (hidden)
+      const invisibleProducts = products.filter((p) => p.invisible);
+      if (invisibleProducts.length > 0) {
+        throw new BadRequestException(
+          `These products are not available for purchase: ${invisibleProducts
+            .map((p) => p.name)
+            .join(", ")}`,
+        );
+      }
+
+      // 2. Check existing direct ownership or active rentals
       const alreadyOwnedDirect = await tx.user.findFirst({
-        where: { id: userId, products: { some: { id: productId } } },
-        select: { id: true },
+        where: {
+          id: userId,
+          products: { some: { id: { in: uniqueProductIds } } },
+        },
+        select: {
+          products: {
+            where: { id: { in: uniqueProductIds } },
+            select: { id: true, name: true },
+          },
+        },
       });
 
-      const alreadyRented = await tx.userGame.findFirst({
+      const alreadyRented = await tx.userGame.findMany({
         where: {
           userId,
-          productId,
+          productId: { in: uniqueProductIds },
           status: RentalStatus.ACTIVE,
         },
-        select: { id: true },
+        include: { product: { select: { name: true } } },
       });
 
-      if (alreadyOwnedDirect || alreadyRented) {
-        throw new ConflictException("Product already owned by this user");
+      if (
+        (alreadyOwnedDirect && alreadyOwnedDirect.products.length > 0) ||
+        alreadyRented.length > 0
+      ) {
+        const ownedNames = [
+          ...(alreadyOwnedDirect?.products.map((p) => p.name) ?? []),
+          ...alreadyRented.map((ug) => ug.product.name),
+        ];
+        const uniqueOwnedNames = Array.from(new Set(ownedNames));
+        throw new ConflictException(
+          `These products are already owned by you: ${uniqueOwnedNames.join(", ")}`,
+        );
       }
 
-      // Find active manifest file linked to product (by appId)
-      const activeManifest = await tx.manifestFile.findFirst({
-        where: { appId: existing.appId, isEnabled: true },
-        orderBy: [{ createdAt: "desc" }],
-        select: { id: true },
+      // 3. Find active manifest files for all products (by appIds)
+      const appIds = products.map((p) => p.appId);
+      const activeManifests = await tx.manifestFile.findMany({
+        where: { appId: { in: appIds }, isEnabled: true },
+        orderBy: { createdAt: "desc" },
       });
 
-      // Determine price and currency (default to VND if available)
-      const vndPrice = existing.prices.find((p) => p.currency === Currency.VND);
-      const usdPrice = existing.prices.find((p) => p.currency === Currency.USD);
-      const chosenPrice = vndPrice ?? usdPrice ?? existing.prices[0];
+      const manifestMap = new Map<number, string>();
+      for (const m of activeManifests) {
+        if (!manifestMap.has(m.appId)) {
+          manifestMap.set(m.appId, m.id);
+        }
+      }
 
-      const rentalPrice = chosenPrice ? chosenPrice.amount : new Prisma.Decimal(0);
-      const rentalCurrency = chosenPrice ? chosenPrice.currency : Currency.VND;
-
-      // 1. Connect product to user's direct library
+      // 4. Connect all products to user's direct library
       await tx.user.update({
         where: { id: userId },
-        data: { products: { connect: { id: productId } } },
-      });
-
-      // 2. Create entry in user_games (rented game record)
-      await tx.userGame.create({
         data: {
-          userId,
-          productId,
-          manifestId: activeManifest?.id ?? null,
-          rentedAt: new Date(),
-          expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days default rental
-          status: RentalStatus.ACTIVE,
-          rentalPrice,
-          rentalCurrency,
+          products: {
+            connect: uniqueProductIds.map((id) => ({ id })),
+          },
         },
       });
 
-      // 3. Create entry in bills (payment accounting record)
-      const transactionRef = `BILL-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+      let totalAmount = new Prisma.Decimal(0);
+      let billCurrency: Currency = Currency.VND;
+
+      // 5. Create user_games entries for each product
+      for (const product of products) {
+        const vndPrice = product.prices.find((p) => p.currency === Currency.VND);
+        const usdPrice = product.prices.find((p) => p.currency === Currency.USD);
+        const chosenPrice = vndPrice ?? usdPrice ?? product.prices[0];
+
+        const itemPrice = chosenPrice ? chosenPrice.amount : new Prisma.Decimal(0);
+        const itemCurrency = chosenPrice ? chosenPrice.currency : Currency.VND;
+
+        totalAmount = totalAmount.add(itemPrice);
+        billCurrency = itemCurrency;
+
+        await tx.userGame.create({
+          data: {
+            userId,
+            productId: product.id,
+            manifestId: manifestMap.get(product.appId) ?? null,
+            rentedAt: new Date(),
+            expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+            status: RentalStatus.ACTIVE,
+            rentalPrice: itemPrice,
+            rentalCurrency: itemCurrency,
+          },
+        });
+      }
+
+      // 6. Create single consolidated Bill for the bulk order
+      const transactionRef = `BILL-BULK-${Date.now()}-${Math.random()
+        .toString(36)
+        .substring(2, 8)
+        .toUpperCase()}`;
+
       await tx.bill.create({
         data: {
           userId,
-          amount: rentalPrice,
-          currency: rentalCurrency,
+          amount: totalAmount,
+          currency: billCurrency,
           paymentMethod: "SYSTEM",
           transactionRef,
           status: PaymentStatus.COMPLETED,
         },
       });
 
-      return existing;
+      return products;
     });
 
-    return this.toModel(product);
+    return purchasedProducts.map((p) => this.toModel(p));
   }
 
   // --- mapping -------------------------------------------------------------

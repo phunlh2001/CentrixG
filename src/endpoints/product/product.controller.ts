@@ -28,13 +28,13 @@ import {
   BulkResultDto,
   MessageResponseDto,
 } from "../../common/dto/message-response.dto";
-import { AuthenticatedUser } from "../../common/interfaces/authenticated-user.interface";
 import {
   CreateManyProductsDto,
   CreateProductDto,
   DeleteManyProductsDto,
   PaginatedProductsModel,
   ProductModel,
+  PurchaseManyProductsDto,
   QueryProductDto,
   UpdateProductDto,
 } from "@app/shared";
@@ -138,16 +138,18 @@ export class ProductController {
     return this.productService.findOne(id);
   }
 
-  @Post(":id/purchase")
+  @Post("purchase")
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: "Purchase a product (adds it to the user library)" })
-  @ApiOkResponse({ type: ProductModel })
-  @ApiNotFoundResponse({ description: "Product not available" })
-  @ApiConflictResponse({ description: "Product already owned" })
-  purchase(
-    @Param("id", ParseUUIDPipe) id: string,
+  @ApiOperation({
+    summary: "Bulk purchase multiple products in a single transaction",
+  })
+  @ApiOkResponse({ type: [ProductModel] })
+  @ApiNotFoundResponse({ description: "One or more products not available" })
+  @ApiConflictResponse({ description: "One or more products already owned" })
+  purchaseMany(
+    @Body() dto: PurchaseManyProductsDto,
     @CurrentUser("id") userId: string,
-  ): Promise<ProductModel> {
-    return this.productService.purchase(userId, id);
+  ): Promise<ProductModel[]> {
+    return this.productService.purchase(userId, dto);
   }
 }
