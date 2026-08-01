@@ -121,8 +121,11 @@ model ManifestFile {
   id           String   @id @default(uuid())
   appId        Int
   product      Product  @relation(fields: [appId], references: [appId], onDelete: Cascade)
+  depotId      Int?
+  manifestId   String?
   manifestData Bytes? // Encrypted/binary payload or manifest JSON
   luaScript    String?  @db.Text // Lua script content for Steam unlocker
+  version      Int      @default(1)
   isEnabled    Boolean  @default(true) // soft delete flag (true == enabled, false == deleted/disabled)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt

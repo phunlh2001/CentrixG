@@ -26,8 +26,11 @@ export class ManifestService {
     const manifest = await this.prisma.manifestFile.create({
       data: {
         appId: dto.appId,
-        manifestData: dto.manifestData ?? null,
+        depotId: dto.depotId ?? null,
+        manifestId: dto.manifestId ?? null,
+        manifestData: this.toBytes(dto.manifestData),
         luaScript: dto.luaScript ?? null,
+        version: dto.version ?? 1,
         isEnabled: dto.isEnabled ?? true,
       },
     });
@@ -52,8 +55,11 @@ export class ManifestService {
           tx.manifestFile.create({
             data: {
               appId: item.appId,
-              manifestData: item.manifestData ?? null,
+              depotId: item.depotId ?? null,
+              manifestId: item.manifestId ?? null,
+              manifestData: this.toBytes(item.manifestData),
               luaScript: item.luaScript ?? null,
+              version: item.version ?? 1,
               isEnabled: item.isEnabled ?? true,
             },
           }),
@@ -154,8 +160,11 @@ export class ManifestService {
     const updated = await this.prisma.manifestFile.update({
       where: { id },
       data: {
-        ...(dto.manifestData !== undefined && { manifestData: dto.manifestData }),
+        ...(dto.depotId !== undefined && { depotId: dto.depotId }),
+        ...(dto.manifestId !== undefined && { manifestId: dto.manifestId }),
+        ...(dto.manifestData !== undefined && { manifestData: this.toBytes(dto.manifestData) }),
         ...(dto.luaScript !== undefined && { luaScript: dto.luaScript }),
+        ...(dto.version !== undefined && { version: dto.version }),
         ...(dto.isEnabled !== undefined && { isEnabled: dto.isEnabled }),
       },
     });
@@ -237,6 +246,24 @@ export class ManifestService {
 
   // --- Helpers -------------------------------------------------------------
 
+  private toBytes(
+    data?: string | Uint8Array | Buffer | null,
+  ): Uint8Array<ArrayBuffer> | null {
+    if (data === undefined || data === null) return null;
+    if (typeof data === 'string') {
+      const buf = Buffer.from(data, 'utf-8');
+      const ab = new ArrayBuffer(buf.length);
+      new Uint8Array(ab).set(buf);
+      return new Uint8Array(ab);
+    }
+    if (data instanceof Uint8Array || Buffer.isBuffer(data)) {
+      const ab = new ArrayBuffer(data.length);
+      new Uint8Array(ab).set(data);
+      return new Uint8Array(ab);
+    }
+    return null;
+  }
+
   private async ensureProductExists(appId: number): Promise<void> {
     const product = await this.prisma.product.findUnique({
       where: { appId },
@@ -268,8 +295,11 @@ export class ManifestService {
     return {
       id: entity.id,
       appId: entity.appId,
+      depotId: entity.depotId ?? undefined,
+      manifestId: entity.manifestId ?? undefined,
       manifestData: entity.manifestData,
       luaScript: entity.luaScript,
+      version: entity.version,
       isEnabled: entity.isEnabled,
       createdAt: entity.createdAt,
       updatedAt: entity.updatedAt,
