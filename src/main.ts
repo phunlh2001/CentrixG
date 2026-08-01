@@ -8,9 +8,13 @@ import {
 } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { CONFIG_ENV } from './common/constants';
+import * as express from 'express';
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule, { bufferLogs: false });
+  app.use(express.json({ limit: '50mb' }))
+  app.use(express.urlencoded({ limit: '50mb', extended: true }))
+
   app.enableCors({
     origin: '*',
     methods: 'GET,PUT,PATCH,POST,DELETE',
