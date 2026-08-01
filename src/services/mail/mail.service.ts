@@ -1,40 +1,30 @@
 import { CONFIG_ENV } from '@app/common/constants';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import * as nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
-  private transporter: nodemailer.Transporter;
+  private readonly resend: Resend;
+  private readonly fromAddress: string;
 
   constructor(private readonly config: ConfigService) {
-    const user = this.config.get<string>(CONFIG_ENV.smtpUser);
-    const pass = this.config.get<string>(CONFIG_ENV.smtpPass);
-    const host = this.config.get<string>(CONFIG_ENV.smtpHost);
-    const port = this.config.get<number>(CONFIG_ENV.smtpPort);
+    const apiKey = this.config.get<string>(CONFIG_ENV.resendApiKey, '');
+    this.fromAddress = this.config.get<string>(CONFIG_ENV.resendFromEmail, '');
 
-    this.transporter = nodemailer.createTransport({
-      host,
-      port,
-      secure: false,
-      auth: {
-        user,
-        pass,
-      },
-    });
+    this.resend = new Resend(apiKey);
+    this.logger.log('MailService initialized.');
   }
 
   /**
-   * Sends a beautiful HTML verification email containing a 6-digit code to the newly registered user.
+   * Sends a 6-digit HTML verification email to the newly registered user.
    */
   async sendVerificationCode(
     toEmail: string,
     username: string,
     code: string,
   ): Promise<boolean> {
-    const fromUser = this.config.get<string>(CONFIG_ENV.smtpUser);
-
     const htmlContent = `
 <!DOCTYPE html>
 <html lang="en">
@@ -110,20 +100,25 @@ export class MailService {
     `;
 
     try {
-      const info = await this.transporter.sendMail({
-        from: `"Centrix Gaming" <${fromUser}>`,
-        to: toEmail,
-        subject: `[Centrix Gaming] Your Verification Code`,
+      const { error } = await this.resend.emails.send({
+        from: this.fromAddress,
+        to: [toEmail],
+        subject: '[Centrix Gaming] Your Verification Code',
         html: htmlContent,
       });
 
-      this.logger.log(
-        `Verification email sent to ${toEmail}: ${info.messageId}`,
-      );
+      if (error) {
+        this.logger.error(
+          `Failed to send verification code to ${toEmail}: ${error.message}`,
+        );
+        throw new Error(error.message);
+      }
+
+      this.logger.log(`Verification code sent successfully to ${toEmail}.`);
       return true;
     } catch (error) {
       this.logger.error(
-        `Failed to send verification email to ${toEmail}`,
+        `Failed to send verification code to ${toEmail}.`,
         error,
       );
       throw error;

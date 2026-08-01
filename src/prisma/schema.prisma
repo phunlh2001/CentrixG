@@ -79,6 +79,9 @@ model Product {
   // Rented game records for customers/streamers.
   userGames UserGame[]
 
+  // Linked categories/platforms (EA, Ubisoft, Denuvo, Rockstar, etc.).
+  productCategories ProductCategory[]
+
   @@index([disabled])
   @@index([invisible])
   @@map("products")
@@ -132,6 +135,36 @@ model ManifestFile {
   @@index([appId])
   @@index([isEnabled])
   @@map("manifest_files")
+}
+
+/// Game categories/protection platforms (e.g. EA, Ubisoft, Denuvo, Rockstar).
+model Category {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  productCategories ProductCategory[]
+
+  @@map("categories")
+}
+
+/// Many-to-many join model connecting Product (by AppID) to Category with a download link (dataUrl).
+model ProductCategory {
+  id         String   @id @default(uuid())
+  appId      Int
+  product    Product  @relation(fields: [appId], references: [appId], onDelete: Cascade)
+  categoryId Int
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  dataUrl    String?  @db.Text // Download link for luascript / category payload
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([appId, categoryId])
+  @@index([appId])
+  @@index([categoryId])
+  @@map("product_categories")
 }
 
 /// Customer, Streamer, or Admin account.

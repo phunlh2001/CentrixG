@@ -106,6 +106,11 @@ export class ProductService {
       ...(query.search
         ? { name: { contains: query.search, mode: "insensitive" } }
         : {}),
+      AND: [
+        { prices: { some: { currency: Currency.VND, amount: { gt: 0 } } } },
+        { prices: { some: { currency: Currency.USD, amount: { gt: 0 } } } },
+        { prices: { some: { currency: Currency.CNY, amount: { gt: 0 } } } },
+      ],
     };
 
     const [items, total] = await this.prisma.$transaction([
