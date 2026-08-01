@@ -11,6 +11,7 @@ import {
   RentalStatus,
 } from "../../prisma/prisma-client";
 import { PrismaService } from "../../prisma/prisma.service";
+import { UserService } from "../../services/user/user.service";
 import {
   CreateDlcDto,
   CreateManyProductsDto,
@@ -45,7 +46,10 @@ type ProductWithRelations = Prisma.ProductGetPayload<{
 
 @Injectable()
 export class ProductService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly userService: UserService,
+  ) {}
 
   /**
    * Creates a single product together with its full pricing (all currencies,
@@ -97,12 +101,12 @@ export class ProductService {
   }
 
   /**
-   * Lists products with pagination. Hidden (invisible) products are
-   * excluded unless the caller explicitly opts in (admins only — the
-   * controller gates this).
+   * Lists products with pagination. Excludes products already owned by the user
+   * if authenticated (UserProducts & active user_games).
    */
   async findAll(
     query: QueryProductDto,
+    userId?: string,
   ): Promise<PaginatedResult<ProductModel>> {
     const page = query.page ?? 1;
     const limit = query.pageSize ?? 20;
@@ -117,6 +121,23 @@ export class ProductService {
         { prices: { some: { currency: Currency.VND, amount: { gt: 0 } } } },
         { prices: { some: { currency: Currency.USD, amount: { gt: 0 } } } },
         { prices: { some: { currency: Currency.CNY, amount: { gt: 0 } } } },
+        ...(userId
+          ? [
+              {
+                owners: {
+                  none: { id: userId },
+                },
+              },
+              {
+                userGames: {
+                  none: {
+                    userId,
+                    status: RentalStatus.ACTIVE,
+                  },
+                },
+              },
+            ]
+          : []),
       ],
     };
 
@@ -219,19 +240,29 @@ export class ProductService {
   }
 
   /**
-   * Records a bulk purchase of multiple products for a user in a single atomic transaction.
+   * Records a purchase of multiple products for a user in a single atomic transaction.
+   * If userId is not provided (unauthenticated purchase), resolves a guest customer account.
    * Connects all products to user's library, populates user_games rental entries for each product,
    * and records a single consolidated bill transaction in the bills table.
    */
   async purchase(
-    userId: string,
     dto: PurchaseManyProductsDto,
+    userId?: string,
   ): Promise<ProductModel[]> {
     if (!dto.productIds || dto.productIds.length === 0) {
       throw new BadRequestException("Product IDs list cannot be empty");
     }
 
     const uniqueProductIds = Array.from(new Set(dto.productIds));
+
+    // Resolve buyer UUID (user account or default guest account)
+    let buyerId = userId;
+    if (!buyerId) {
+      const guestUser = await this.userService.findOrCreateGuestUser();
+      buyerId = guestUser.id;
+    }
+
+    const targetUserId = buyerId;
 
     const purchasedProducts = await this.prisma.$transaction(async (tx) => {
       // 1. Fetch all requested products with pricing
@@ -261,7 +292,7 @@ export class ProductService {
       // 2. Check existing direct ownership or active rentals
       const alreadyOwnedDirect = await tx.user.findFirst({
         where: {
-          id: userId,
+          id: targetUserId,
           products: { some: { id: { in: uniqueProductIds } } },
         },
         select: {
@@ -274,7 +305,7 @@ export class ProductService {
 
       const alreadyRented = await tx.userGame.findMany({
         where: {
-          userId,
+          userId: targetUserId,
           productId: { in: uniqueProductIds },
           status: RentalStatus.ACTIVE,
         },
@@ -311,7 +342,7 @@ export class ProductService {
 
       // 4. Connect all products to user's direct library
       await tx.user.update({
-        where: { id: userId },
+        where: { id: targetUserId },
         data: {
           products: {
             connect: uniqueProductIds.map((id) => ({ id })),
@@ -336,7 +367,7 @@ export class ProductService {
 
         await tx.userGame.create({
           data: {
-            userId,
+            userId: targetUserId,
             productId: product.id,
             manifestId: manifestMap.get(product.appId) ?? null,
             rentedAt: new Date(),
@@ -356,7 +387,7 @@ export class ProductService {
 
       await tx.bill.create({
         data: {
-          userId,
+          userId: targetUserId,
           amount: totalAmount,
           currency: billCurrency,
           paymentMethod: "SYSTEM",

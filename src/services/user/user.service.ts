@@ -146,6 +146,30 @@ export class UserService {
   }
 
   /**
+   * Retrieves or creates a default guest user record for unauthenticated / anonymous purchases.
+   */
+  async findOrCreateGuestUser(): Promise<User> {
+    const guestEmail = 'guest@centrix.dev';
+    let guest = await this.prisma.user.findUnique({
+      where: { email: guestEmail },
+    });
+
+    if (!guest) {
+      guest = await this.prisma.user.create({
+        data: {
+          username: 'guest_player',
+          email: guestEmail,
+          passwordHash: '$2b$10$GuestDefaultPasswordHash0000000000000000000',
+          isVerified: true,
+          role: 'CUSTOMER',
+        },
+      });
+    }
+
+    return guest;
+  }
+
+  /**
    * Retrieves all rented games (user_games) for a specific user, including
    * product details, pricing, DLCs, and active manifest file info.
    */

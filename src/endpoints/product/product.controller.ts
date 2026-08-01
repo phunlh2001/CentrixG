@@ -121,12 +121,16 @@ export class ProductController {
 
   @Get()
   @Public()
-  @ApiOperation({ summary: "List visible products (paginated)" })
+  @ApiOperation({
+    summary:
+      "List visible products (paginated). Excludes owned products if authenticated.",
+  })
   @ApiOkResponse({ type: PaginatedProductsModel })
   findAll(
     @Query() query: QueryProductDto,
+    @CurrentUser("id") userId?: string,
   ): Promise<PaginatedResult<ProductModel>> {
-    return this.productService.findAll({ ...query });
+    return this.productService.findAll({ ...query }, userId);
   }
 
   @Get(":id")
@@ -139,17 +143,19 @@ export class ProductController {
   }
 
   @Post("purchase")
+  @Public()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: "Bulk purchase multiple products in a single transaction",
+    summary:
+      "Purchase products (one or many) in a single transaction (authorization optional)",
   })
   @ApiOkResponse({ type: [ProductModel] })
   @ApiNotFoundResponse({ description: "One or more products not available" })
   @ApiConflictResponse({ description: "One or more products already owned" })
-  purchaseMany(
+  purchase(
     @Body() dto: PurchaseManyProductsDto,
-    @CurrentUser("id") userId: string,
+    @CurrentUser("id") userId?: string,
   ): Promise<ProductModel[]> {
-    return this.productService.purchase(userId, dto);
+    return this.productService.purchase(dto, userId);
   }
 }
