@@ -1,8 +1,9 @@
 /**
- * Standard envelope wrapping every successful response.
+ * Standard envelope wrapping every API response (both success and error).
  */
-export interface ApiResponse<T> {
-  success: true;
+export interface ApiResponse<T = any> {
+  success: boolean;
   statusCode: number;
-  data: T;
+  data: T | null;
+  message: string;
 }

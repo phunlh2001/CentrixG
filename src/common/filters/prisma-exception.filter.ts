@@ -9,8 +9,8 @@ import { Prisma } from '../../prisma/prisma-client';
 import { Response } from 'express';
 
 /**
- * Translates known Prisma errors into meaningful HTTP responses so that
- * database concerns never leak raw stack traces to clients.
+ * Translates known Prisma errors into meaningful HTTP responses in the exact format:
+ * { success: false, statusCode, data: null, message }
  *
  * Reference: https://www.prisma.io/docs/orm/reference/error-reference
  */
@@ -61,10 +61,10 @@ export class PrismaExceptionFilter implements ExceptionFilter {
     }
 
     response.status(status).json({
+      success: false,
       statusCode: status,
-      error: HttpStatus[status],
+      data: null,
       message,
-      code: exception.code,
     });
   }
 }
