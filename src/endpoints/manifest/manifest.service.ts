@@ -26,11 +26,8 @@ export class ManifestService {
     const manifest = await this.prisma.manifestFile.create({
       data: {
         appId: dto.appId,
-        depotId: dto.depotId ?? null,
-        manifestId: dto.manifestId ?? null,
         manifestData: dto.manifestData ?? null,
         luaScript: dto.luaScript ?? null,
-        version: dto.version ?? 1,
         isEnabled: dto.isEnabled ?? true,
       },
     });
@@ -55,11 +52,8 @@ export class ManifestService {
           tx.manifestFile.create({
             data: {
               appId: item.appId,
-              depotId: item.depotId ?? null,
-              manifestId: item.manifestId ?? null,
               manifestData: item.manifestData ?? null,
               luaScript: item.luaScript ?? null,
-              version: item.version ?? 1,
               isEnabled: item.isEnabled ?? true,
             },
           }),
@@ -84,7 +78,7 @@ export class ManifestService {
         appId,
         ...(includeDisabled ? {} : { isEnabled: true }),
       },
-      orderBy: [{ version: 'desc' }, { createdAt: 'desc' }],
+      orderBy: [{ createdAt: 'desc' }],
     });
 
     return manifests.map((m) => this.toModel(m));
@@ -98,7 +92,7 @@ export class ManifestService {
 
     const manifest = await this.prisma.manifestFile.findFirst({
       where: { appId, isEnabled: true },
-      orderBy: [{ version: 'desc' }, { createdAt: 'desc' }],
+      orderBy: [{ createdAt: 'desc' }],
     });
 
     if (!manifest) {
@@ -121,7 +115,7 @@ export class ManifestService {
 
     const existing = await this.prisma.manifestFile.findFirst({
       where: { appId, isEnabled: true },
-      orderBy: [{ version: 'desc' }, { createdAt: 'desc' }],
+      orderBy: [{ createdAt: 'desc' }],
     });
 
     if (!existing) {
@@ -133,11 +127,8 @@ export class ManifestService {
     const updated = await this.prisma.manifestFile.update({
       where: { id: existing.id },
       data: {
-        ...(dto.depotId !== undefined && { depotId: dto.depotId }),
-        ...(dto.manifestId !== undefined && { manifestId: dto.manifestId }),
         ...(dto.manifestData !== undefined && { manifestData: dto.manifestData }),
         ...(dto.luaScript !== undefined && { luaScript: dto.luaScript }),
-        ...(dto.version !== undefined && { version: dto.version }),
         ...(dto.isEnabled !== undefined && { isEnabled: dto.isEnabled }),
       },
     });
@@ -163,11 +154,8 @@ export class ManifestService {
     const updated = await this.prisma.manifestFile.update({
       where: { id },
       data: {
-        ...(dto.depotId !== undefined && { depotId: dto.depotId }),
-        ...(dto.manifestId !== undefined && { manifestId: dto.manifestId }),
         ...(dto.manifestData !== undefined && { manifestData: dto.manifestData }),
         ...(dto.luaScript !== undefined && { luaScript: dto.luaScript }),
-        ...(dto.version !== undefined && { version: dto.version }),
         ...(dto.isEnabled !== undefined && { isEnabled: dto.isEnabled }),
       },
     });
@@ -280,11 +268,8 @@ export class ManifestService {
     return {
       id: entity.id,
       appId: entity.appId,
-      depotId: entity.depotId,
-      manifestId: entity.manifestId,
       manifestData: entity.manifestData,
       luaScript: entity.luaScript,
-      version: entity.version,
       isEnabled: entity.isEnabled,
       createdAt: entity.createdAt,
       updatedAt: entity.updatedAt,

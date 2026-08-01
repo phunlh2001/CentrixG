@@ -26,8 +26,8 @@ export class UpdateManifestDto {
     description: 'Encrypted or JSON manifest payload',
   })
   @IsOptional()
-  @IsString()
-  manifestData?: string;
+  // manifestData is a binary payload (Uint8Array)
+  manifestData?: Uint8Array<ArrayBuffer>;
 
   @ApiPropertyOptional({
     example: 'addappid(570, 1, "key")',

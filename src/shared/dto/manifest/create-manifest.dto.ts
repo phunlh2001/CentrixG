@@ -33,7 +33,7 @@ export class CreateManifestDto {
   })
   @IsOptional()
   @IsString()
-  manifestData?: string;
+  manifestData?: Uint8Array<ArrayBuffer>;
 
   @ApiPropertyOptional({
     example: 'addappid(570, 1, "key")',

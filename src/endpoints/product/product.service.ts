@@ -253,7 +253,7 @@ export class ProductService {
       // Find active manifest file linked to product (by appId)
       const activeManifest = await tx.manifestFile.findFirst({
         where: { appId: existing.appId, isEnabled: true },
-        orderBy: [{ version: "desc" }, { createdAt: "desc" }],
+        orderBy: [{ createdAt: "desc" }],
         select: { id: true },
       });
 
