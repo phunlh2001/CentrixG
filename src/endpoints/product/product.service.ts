@@ -3,7 +3,12 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import { Currency, Prisma } from "../../prisma/prisma-client";
+import {
+  Currency,
+  PaymentStatus,
+  Prisma,
+  RentalStatus,
+} from "../../prisma/prisma-client";
 import { PrismaService } from "../../prisma/prisma.service";
 import {
   CreateDlcDto,
@@ -212,9 +217,8 @@ export class ProductService {
   }
 
   /**
-   * Records a purchase: links a product to a user (many-to-many) inside a
-   * transaction. Rejects hidden products, missing products and duplicate
-   * ownership.
+   * Records a product purchase: links product to user, populates user_games rental entry
+   * (with active manifest if present) and records transaction ledger in bills table.
    */
   async purchase(userId: string, productId: string): Promise<ProductModel> {
     const product = await this.prisma.$transaction(async (tx) => {
@@ -227,18 +231,71 @@ export class ProductService {
         throw new NotFoundException(`Product ${productId} not available`);
       }
 
-      const alreadyOwned = await tx.user.findFirst({
+      // Check direct ownership or active rental
+      const alreadyOwnedDirect = await tx.user.findFirst({
         where: { id: userId, products: { some: { id: productId } } },
         select: { id: true },
       });
 
-      if (alreadyOwned) {
+      const alreadyRented = await tx.userGame.findFirst({
+        where: {
+          userId,
+          productId,
+          status: RentalStatus.ACTIVE,
+        },
+        select: { id: true },
+      });
+
+      if (alreadyOwnedDirect || alreadyRented) {
         throw new ConflictException("Product already owned by this user");
       }
 
+      // Find active manifest file linked to product (by appId)
+      const activeManifest = await tx.manifestFile.findFirst({
+        where: { appId: existing.appId, isEnabled: true },
+        orderBy: [{ version: "desc" }, { createdAt: "desc" }],
+        select: { id: true },
+      });
+
+      // Determine price and currency (default to VND if available)
+      const vndPrice = existing.prices.find((p) => p.currency === Currency.VND);
+      const usdPrice = existing.prices.find((p) => p.currency === Currency.USD);
+      const chosenPrice = vndPrice ?? usdPrice ?? existing.prices[0];
+
+      const rentalPrice = chosenPrice ? chosenPrice.amount : new Prisma.Decimal(0);
+      const rentalCurrency = chosenPrice ? chosenPrice.currency : Currency.VND;
+
+      // 1. Connect product to user's direct library
       await tx.user.update({
         where: { id: userId },
         data: { products: { connect: { id: productId } } },
+      });
+
+      // 2. Create entry in user_games (rented game record)
+      await tx.userGame.create({
+        data: {
+          userId,
+          productId,
+          manifestId: activeManifest?.id ?? null,
+          rentedAt: new Date(),
+          expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days default rental
+          status: RentalStatus.ACTIVE,
+          rentalPrice,
+          rentalCurrency,
+        },
+      });
+
+      // 3. Create entry in bills (payment accounting record)
+      const transactionRef = `BILL-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+      await tx.bill.create({
+        data: {
+          userId,
+          amount: rentalPrice,
+          currency: rentalCurrency,
+          paymentMethod: "SYSTEM",
+          transactionRef,
+          status: PaymentStatus.COMPLETED,
+        },
       });
 
       return existing;
