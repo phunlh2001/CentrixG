@@ -230,9 +230,9 @@ export class UserService {
         ? {
             id: ug.manifest.id,
             appId: ug.manifest.appId,
-            manifestData: ug.manifest.manifestData,
-            luaScript: ug.manifest.luaScript,
-            isEnabled: ug.manifest.isEnabled,
+            manifestUrl: ug.manifest.manifestUrl,
+            createdAt: ug.manifest.createdAt,
+            updatedAt: ug.manifest.updatedAt,
           }
         : null,
       rentedAt: ug.rentedAt,

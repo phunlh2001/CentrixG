@@ -329,7 +329,7 @@ export class ProductService {
       // 3. Find active manifest files for all products (by appIds)
       const appIds = products.map((p) => p.appId);
       const activeManifests = await tx.manifestFile.findMany({
-        where: { appId: { in: appIds }, isEnabled: true },
+        where: { appId: { in: appIds } },
         orderBy: { createdAt: "desc" },
       });
 

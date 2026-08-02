@@ -4,26 +4,15 @@ export class ManifestModel {
   @ApiProperty({ example: '9c1f...uuid' })
   id: string;
 
-  @ApiProperty({ example: 570 })
+  @ApiProperty({ example: 570, description: 'Steam AppID' })
   appId: number;
 
-  @ApiProperty({ nullable: true, example: 571 })
-  depotId?: number | null;
-
-  @ApiProperty({ nullable: true, example: '1234567890123456789' })
-  manifestId?: string | null;
-
-  @ApiProperty({ nullable: true, example: '{"depots": ...}' })
-  manifestData: Uint8Array<ArrayBuffer> | null;
-
-  @ApiProperty({ nullable: true, example: 'addappid(570, 1, "key")' })
-  luaScript: string | null;
-
-  @ApiProperty({ example: 1 })
-  version?: number;
-
-  @ApiProperty({ example: true, description: 'True if manifest is enabled (not soft deleted)' })
-  isEnabled: boolean;
+  @ApiProperty({
+    nullable: true,
+    example: 'https://example.com/manifests/570.json',
+    description: 'URL to download or access manifest file',
+  })
+  manifestUrl: string | null;
 
   @ApiProperty()
   createdAt: Date;

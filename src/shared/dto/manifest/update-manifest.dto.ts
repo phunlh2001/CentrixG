@@ -1,49 +1,12 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import {
-  IsBoolean,
-  IsInt,
-  IsNumber,
-  IsOptional,
-  IsString,
-} from 'class-validator';
+import { IsOptional, IsString } from 'class-validator';
 
 export class UpdateManifestDto {
-  @ApiPropertyOptional({ example: 571, description: 'Steam Depot ID' })
-  @IsOptional()
-  @IsInt()
-  depotId?: number;
-
   @ApiPropertyOptional({
-    example: '1234567890123456789',
-    description: 'Steam Manifest ID',
+    example: 'https://example.com/manifests/570.json',
+    description: 'URL to download or access manifest file',
   })
   @IsOptional()
   @IsString()
-  manifestId?: string;
-
-  @ApiPropertyOptional({
-    example: '{"depots": ...}',
-    description: 'Encrypted or JSON manifest payload',
-  })
-  @IsOptional()
-  // manifestData is a binary payload (Uint8Array)
-  manifestData?: Uint8Array<ArrayBuffer>;
-
-  @ApiPropertyOptional({
-    example: 'addappid(570, 1, "key")',
-    description: 'Lua script content for Steam unlocker tool',
-  })
-  @IsOptional()
-  @IsString()
-  luaScript?: string;
-
-  @ApiPropertyOptional({ example: 1, description: 'Manifest version number' })
-  @IsOptional()
-  @IsNumber()
-  version?: number;
-
-  @ApiPropertyOptional({ example: true, description: 'Is manifest enabled' })
-  @IsOptional()
-  @IsBoolean()
-  isEnabled?: boolean;
+  manifestUrl?: string;
 }
