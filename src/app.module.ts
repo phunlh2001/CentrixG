@@ -16,7 +16,7 @@ import { TerminusModule } from '@nestjs/terminus';
 import { ScheduleModule } from '@nestjs/schedule';
 import { MailModule } from './services/mail/mail.module';
 import { ManifestModule } from './endpoints/manifest/manifest.module';
-import { UserModule } from './services/user/user.module';
+import { UserModule } from './endpoints/user/user.module';
 import { TokenModule } from './services/token/token.module';
 
 @Module({

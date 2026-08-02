@@ -6,7 +6,7 @@ import {
   AuthenticatedUser,
   JwtPayload,
 } from '../../../common/interfaces/authenticated-user.interface';
-import { UserService } from '../../../services/user/user.service';
+import { UserService } from '../../user/user.service';
 import { CONFIG_ENV } from '@app/common/constants';
 
 /**

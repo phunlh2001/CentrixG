@@ -7,7 +7,7 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { UserService } from '../../services/user/user.service';
+import { UserService } from './user.service';
 
 @ApiTags('User')
 @ApiBearerAuth('access-token')

@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { UserService } from './user.service';
-import { UserController } from '../../endpoints/user/user.controller';
+import { UserController } from './user.controller';
 
 /**
  * Owns user persistence and UserController endpoints. Exports UserService

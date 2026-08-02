@@ -15,7 +15,7 @@ import { JwtPayload } from '../../common/interfaces/authenticated-user.interface
 import { generateOpaqueToken } from '../../common/utils/token.util';
 import { hashPassword, verifyPassword } from '../../common/utils/password.util';
 import { TokenService } from '../../services/token/token.service';
-import { UserService } from '../../services/user/user.service';
+import { UserService } from '../user/user.service';
 import { MessageResponseDto } from '../../common/dto/message-response.dto';
 import {
   AuthTokensDto,

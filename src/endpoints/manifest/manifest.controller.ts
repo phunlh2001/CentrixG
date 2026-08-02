@@ -45,60 +45,6 @@ export class ManifestController {
     return this.manifestService.findByAppId(appId);
   }
 
-  @Post()
-  @Public()
-  @HttpCode(HttpStatus.OK)
-  @UseInterceptors(FileInterceptor('file'))
-  @ApiConsumes('multipart/form-data')
-  @ApiOperation({
-    summary:
-      'Upload a manifest .zip file, save to Supabase Storage, and link manifestUrl to product',
-  })
-  @ApiBody({
-    schema: {
-      type: 'object',
-      required: ['appId', 'file'],
-      properties: {
-        appId: {
-          type: 'integer',
-          example: 570,
-          description: 'Steam AppID',
-        },
-        file: {
-          type: 'string',
-          format: 'binary',
-          description: 'Steam manifest zip file (.zip)',
-        },
-      },
-    },
-  })
-  @ApiOkResponse({ type: ManifestModel })
-  @ApiNotFoundResponse({ description: 'Product with AppID not found' })
-  async uploadZipManifest(
-    @Body('appId', ParseIntPipe) appId: number,
-    @UploadedFile() file?: Express.Multer.File,
-  ): Promise<ManifestModel> {
-    if (!file) {
-      throw new BadRequestException('No file provided in form-data field "file"');
-    }
-
-    if (
-      !file.originalname.toLowerCase().endsWith('.zip') &&
-      !['application/zip', 'application/x-zip-compressed', 'application/x-compressed'].includes(
-        file.mimetype,
-      )
-    ) {
-      throw new BadRequestException('Uploaded file must be a .zip file');
-    }
-
-    return this.manifestService.uploadManifestFile(
-      appId,
-      file.buffer,
-      file.originalname,
-      file.mimetype,
-    );
-  }
-
   @Post(':appId/upload')
   @Public()
   @HttpCode(HttpStatus.OK)
@@ -106,7 +52,7 @@ export class ManifestController {
   @ApiConsumes('multipart/form-data')
   @ApiOperation({
     summary:
-      'Upload a manifest .zip file for AppID in path, save to Supabase Storage, and link manifestUrl to product',
+      'Upload a manifest .zip file for AppID, save to Supabase Storage, and link manifestUrl to product',
   })
   @ApiBody({
     schema: {
@@ -123,7 +69,7 @@ export class ManifestController {
   })
   @ApiOkResponse({ type: ManifestModel })
   @ApiNotFoundResponse({ description: 'Product with AppID not found' })
-  async uploadZipManifestByParam(
+  async uploadZipManifest(
     @Param('appId', ParseIntPipe) appId: number,
     @UploadedFile() file?: Express.Multer.File,
   ): Promise<ManifestModel> {
