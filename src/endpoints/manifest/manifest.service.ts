@@ -2,10 +2,14 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ManifestFile } from '../../prisma/prisma-client';
 import { ManifestModel, UpdateManifestDto } from '@app/shared';
+import { SupabaseStorageService } from '../../services/supabase/supabase-storage.service';
 
 @Injectable()
 export class ManifestService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly supabaseStorageService: SupabaseStorageService,
+  ) {}
 
   /**
    * Retrieves the manifest record (manifestUrl) for a Steam AppID.
@@ -25,7 +29,40 @@ export class ManifestService {
   }
 
   /**
-   * Creates or updates the manifestUrl for a Steam AppID.
+   * Uploads a raw manifest file (e.g. large Steam manifest payload) to Supabase Storage
+   * and saves the resulting public URL to manifest_files table.
+   */
+  async uploadManifestFile(
+    appId: number,
+    fileBuffer: Buffer,
+    originalName: string,
+    mimeType?: string,
+  ): Promise<ManifestModel> {
+    await this.ensureProductExists(appId);
+
+    const publicUrl = await this.supabaseStorageService.uploadManifestFile(
+      appId,
+      fileBuffer,
+      originalName,
+      mimeType,
+    );
+
+    const manifest = await this.prisma.manifestFile.upsert({
+      where: { appId },
+      create: {
+        appId,
+        manifestUrl: publicUrl,
+      },
+      update: {
+        manifestUrl: publicUrl,
+      },
+    });
+
+    return this.toModel(manifest);
+  }
+
+  /**
+   * Creates or updates the manifestUrl for a Steam AppID directly.
    */
   async updateByAppId(
     appId: number,

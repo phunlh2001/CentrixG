@@ -7,4 +7,9 @@ export const CONFIG_ENV = {
   jwtRefreshExpiresIn: 'JWT_REFRESH_EXPIRES_IN',
   resendApiKey: 'RESEND_API_KEY',
   resendFromEmail: 'RESEND_FROM_EMAIL',
+  supabaseUrl: 'SUPABASE_URL',
+  supabasePublishableKey: 'SUPABASE_PUBLISHABLE_KEY',
+  supabaseSecretKey: 'SUPABASE_SECRET_KEY',
+  supabaseJwksUrl: 'SUPABASE_JWKS_URL',
+  supabaseManifestBucket: 'SUPABASE_MANIFEST_BUCKET',
 };
