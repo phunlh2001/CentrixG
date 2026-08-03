@@ -236,28 +236,14 @@ export class AuthService {
   }
 
   /**
-   * Enforces max 3 token creations per week per user & IP combination (CUSTOMER / STREAMER only).
+   * Records user login entry in login_logs table.
+   * Rate limit check by IP is temporarily disabled — logins are permitted every time.
    */
   private async checkAndRecordLoginLimit(
     user: User,
     ipAddress: string,
   ): Promise<void> {
-    if (user.role !== Role.ADMIN) {
-      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-      const loginCount = await this.prisma.loginLog.count({
-        where: {
-          email: user.email,
-          ipAddress: ipAddress,
-          createdAt: { gte: sevenDaysAgo },
-        },
-      });
-
-      if (loginCount >= 3) {
-        throw new ForbiddenException(
-          'Weekly login limit reached. Non-admin users are restricted to 3 new logins per week per IP.',
-        );
-      }
-    }
+    // Rate limit check temporarily disabled (open everytime)
 
     await this.prisma.loginLog.create({
       data: {
