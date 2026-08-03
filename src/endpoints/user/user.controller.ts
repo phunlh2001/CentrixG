@@ -8,6 +8,7 @@ import {
 } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { UserService } from './user.service';
+import { UserGameModel } from '@app/shared';
 
 @ApiTags('User')
 @ApiBearerAuth('access-token')
@@ -19,13 +20,14 @@ export class UserController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary:
-      'Get all rented games (user_games) for the currently authenticated user',
+      'Get all purchased games for the currently authenticated user from library',
   })
   @ApiOkResponse({
-    description: 'List of rented games with product and manifest details',
+    type: [UserGameModel],
+    description: 'List of purchased games with product and manifest details',
   })
   @ApiUnauthorizedResponse({ description: 'Unauthorized or missing Bearer token' })
-  getUserGames(@CurrentUser('id') userId: string) {
+  getUserGames(@CurrentUser('id') userId: string): Promise<UserGameModel[]> {
     return this.userService.getUserGames(userId);
   }
 }

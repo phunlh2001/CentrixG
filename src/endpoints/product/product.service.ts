@@ -8,7 +8,6 @@ import {
   Currency,
   PaymentStatus,
   Prisma,
-  RentalStatus,
 } from "../../prisma/prisma-client";
 import { PrismaService } from "../../prisma/prisma.service";
 import { UserService } from "../user/user.service";
@@ -126,14 +125,6 @@ export class ProductService {
               {
                 owners: {
                   none: { id: userId },
-                },
-              },
-              {
-                userGames: {
-                  none: {
-                    userId,
-                    status: RentalStatus.ACTIVE,
-                  },
                 },
               },
             ]
@@ -289,7 +280,7 @@ export class ProductService {
         );
       }
 
-      // 2. Check existing direct ownership or active rentals
+      // 2. Check existing direct ownership
       const alreadyOwnedDirect = await tx.user.findFirst({
         where: {
           id: targetUserId,
@@ -303,44 +294,14 @@ export class ProductService {
         },
       });
 
-      const alreadyRented = await tx.userGame.findMany({
-        where: {
-          userId: targetUserId,
-          productId: { in: uniqueProductIds },
-          status: RentalStatus.ACTIVE,
-        },
-        include: { product: { select: { name: true } } },
-      });
-
-      if (
-        (alreadyOwnedDirect && alreadyOwnedDirect.products.length > 0) ||
-        alreadyRented.length > 0
-      ) {
-        const ownedNames = [
-          ...(alreadyOwnedDirect?.products.map((p) => p.name) ?? []),
-          ...alreadyRented.map((ug) => ug.product.name),
-        ];
-        const uniqueOwnedNames = Array.from(new Set(ownedNames));
+      if (alreadyOwnedDirect && alreadyOwnedDirect.products.length > 0) {
+        const ownedNames = alreadyOwnedDirect.products.map((p) => p.name);
         throw new ConflictException(
-          `These products are already owned by you: ${uniqueOwnedNames.join(", ")}`,
+          `These products are already owned by you: ${ownedNames.join(", ")}`,
         );
       }
 
-      // 3. Find active manifest files for all products (by appIds)
-      const appIds = products.map((p) => p.appId);
-      const activeManifests = await tx.manifestFile.findMany({
-        where: { appId: { in: appIds } },
-        orderBy: { createdAt: "desc" },
-      });
-
-      const manifestMap = new Map<number, string>();
-      for (const m of activeManifests) {
-        if (!manifestMap.has(m.appId)) {
-          manifestMap.set(m.appId, m.id);
-        }
-      }
-
-      // 4. Connect all products to user's direct library
+      // 3. Connect all products to user's direct library (UserProducts)
       await tx.user.update({
         where: { id: targetUserId },
         data: {
@@ -353,7 +314,7 @@ export class ProductService {
       let totalAmount = new Prisma.Decimal(0);
       let billCurrency: Currency = Currency.VND;
 
-      // 5. Create user_games entries for each product
+      // 4. Calculate total bill amount across all purchased products
       for (const product of products) {
         const vndPrice = product.prices.find((p) => p.currency === Currency.VND);
         const usdPrice = product.prices.find((p) => p.currency === Currency.USD);
@@ -364,22 +325,9 @@ export class ProductService {
 
         totalAmount = totalAmount.add(itemPrice);
         billCurrency = itemCurrency;
-
-        await tx.userGame.create({
-          data: {
-            userId: targetUserId,
-            productId: product.id,
-            manifestId: manifestMap.get(product.appId) ?? null,
-            rentedAt: new Date(),
-            expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
-            status: RentalStatus.ACTIVE,
-            rentalPrice: itemPrice,
-            rentalCurrency: itemCurrency,
-          },
-        });
       }
 
-      // 6. Create single consolidated Bill for the bulk order
+      // 5. Create single consolidated Bill for the order
       const transactionRef = `BILL-BULK-${Date.now()}-${Math.random()
         .toString(36)
         .substring(2, 8)

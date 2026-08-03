@@ -4,7 +4,13 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, User } from '../../prisma/prisma-client';
+import { Currency, Prisma, User } from '../../prisma/prisma-client';
+import {
+  DlcModel,
+  ManifestModel,
+  ProductModel,
+  UserGameModel,
+} from '@app/shared';
 
 /**
  * Encapsulates all persistence logic for {@link User} records.
@@ -170,78 +176,83 @@ export class UserService {
   }
 
   /**
-   * Retrieves all rented games (user_games) for a specific user, including
-   * product details, pricing, DLCs, and active manifest file info.
+   * Retrieves all purchased games for a specific user from UserProducts (User.products)
+   * including product details, pricing, DLCs, and active manifest file info.
    */
-  async getUserGames(userId: string) {
-    const userGames = await this.prisma.userGame.findMany({
-      where: { userId },
+  async getUserGames(userId: string): Promise<UserGameModel[]> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
       include: {
-        product: {
+        products: {
           include: {
             prices: true,
             dlcs: true,
+            manifests: true,
           },
         },
-        manifest: true,
       },
-      orderBy: { createdAt: 'desc' },
     });
 
-    return userGames.map((ug) => ({
-      id: ug.id,
-      userId: ug.userId,
-      productId: ug.productId,
-      product: {
-        id: ug.product.id,
-        appId: ug.product.appId,
-        name: ug.product.name,
-        description: ug.product.description,
-        imageUrl: ug.product.imageUrl,
-        releaseDate: ug.product.releaseDate,
-        developer: ug.product.developer,
-        publisher: ug.product.publisher,
-        genres: ug.product.genres,
-        categories: ug.product.categories,
-        tags: ug.product.tags,
-        platforms: ug.product.platforms,
+    if (!user) {
+      throw new NotFoundException(`User ${userId} not found`);
+    }
+
+    return user.products.map((product) => {
+      const vndPrice = product.prices.find((p) => p.currency === Currency.VND);
+      const usdPrice = product.prices.find((p) => p.currency === Currency.USD);
+      const cnyPrice = product.prices.find((p) => p.currency === Currency.CNY);
+
+      const latestManifest =
+        product.manifests.length > 0 ? product.manifests[0] : null;
+
+      const productModel: ProductModel = {
+        id: product.id,
+        appId: product.appId,
+        name: product.name,
+        description: product.description,
+        imageUrl: product.imageUrl,
         pricing: {
-          vnd:
-            ug.product.prices
-              .find((p) => p.currency === 'VND')
-              ?.amount.toString() ?? '0',
-          usd:
-            ug.product.prices
-              .find((p) => p.currency === 'USD')
-              ?.amount.toString() ?? '0',
-          cny:
-            ug.product.prices
-              .find((p) => p.currency === 'CNY')
-              ?.amount.toString() ?? '0',
+          vnd: vndPrice?.amount.toString() ?? '0',
+          usd: usdPrice?.amount.toString() ?? '0',
+          cny: cnyPrice?.amount.toString() ?? '0',
         },
-        dlcs: ug.product.dlcs.map((d) => ({
-          id: d.id,
-          appId: d.appId,
-          name: d.name,
-        })),
-      },
-      manifestId: ug.manifestId,
-      manifest: ug.manifest
+        releaseDate: product.releaseDate,
+        developer: product.developer,
+        publisher: product.publisher,
+        genres: product.genres,
+        categories: product.categories,
+        tags: product.tags,
+        platforms: product.platforms,
+        dlcs: product.dlcs.map(
+          (d): DlcModel => ({
+            id: d.id,
+            appId: d.appId,
+            name: d.name,
+            productId: d.productId,
+            createdAt: d.createdAt,
+            updatedAt: d.updatedAt,
+          }),
+        ),
+        disabled: product.disabled,
+        isDelete: product.isDelete,
+        createdAt: product.createdAt,
+        updatedAt: product.updatedAt,
+      };
+
+      const manifestModel: ManifestModel | null = latestManifest
         ? {
-            id: ug.manifest.id,
-            appId: ug.manifest.appId,
-            manifestUrl: ug.manifest.manifestUrl,
-            createdAt: ug.manifest.createdAt,
-            updatedAt: ug.manifest.updatedAt,
+            id: latestManifest.id,
+            appId: latestManifest.appId,
+            manifestUrl: latestManifest.manifestUrl,
+            createdAt: latestManifest.createdAt,
+            updatedAt: latestManifest.updatedAt,
           }
-        : null,
-      rentedAt: ug.rentedAt,
-      expiresAt: ug.expiresAt,
-      status: ug.status,
-      rentalPrice: ug.rentalPrice.toString(),
-      rentalCurrency: ug.rentalCurrency,
-      createdAt: ug.createdAt,
-      updatedAt: ug.updatedAt,
-    }));
+        : null;
+
+      return {
+        product: productModel,
+        manifest: manifestModel,
+      };
+    });
   }
 }

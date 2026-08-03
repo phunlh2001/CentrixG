@@ -24,14 +24,6 @@ enum Currency {
   CNY
 }
 
-/// Status of user game rental subscriptions.
-enum RentalStatus {
-  ACTIVE
-  EXPIRED
-  CANCELLED
-  REVOKED
-}
-
 /// Payment transaction status.
 enum PaymentStatus {
   PENDING
@@ -73,9 +65,6 @@ model Product {
 
   // Users who explicitly own this game (many-to-many direct relation).
   owners User[] @relation("UserProducts")
-
-  // Rented game records for customers/streamers.
-  userGames UserGame[]
 
   // Linked categories/platforms (EA, Ubisoft, Denuvo, Rockstar, etc.).
   productCategories ProductCategory[]
@@ -122,8 +111,6 @@ model ManifestFile {
   manifestUrl String?  @db.Text
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-
-  userGames UserGame[]
 
   @@map("manifest_files")
 }
@@ -181,9 +168,6 @@ model User {
   // Login event audit log for weekly IP rate limiting
   loginLogs LoginLog[]
 
-  // Rented games subtable
-  userGames UserGame[]
-
   // Payment transactions ledger
   bills Bill[]
 
@@ -218,28 +202,6 @@ model LoginLog {
   @@index([userId])
   @@index([email, ipAddress, createdAt])
   @@map("login_logs")
-}
-
-/// User's rented games subtable.
-model UserGame {
-  id             String        @id @default(uuid())
-  userId         String
-  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  productId      String
-  product        Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
-  manifestId     String?
-  manifest       ManifestFile? @relation(fields: [manifestId], references: [id], onDelete: SetNull)
-  rentedAt       DateTime      @default(now())
-  expiresAt      DateTime
-  status         RentalStatus  @default(ACTIVE)
-  rentalPrice    Decimal       @default(0) @db.Decimal(18, 4)
-  rentalCurrency Currency      @default(VND)
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-
-  @@index([userId])
-  @@index([productId])
-  @@map("user_games")
 }
 
 /// Payment and billing history for author / admin accounting.
