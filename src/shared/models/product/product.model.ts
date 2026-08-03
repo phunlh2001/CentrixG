@@ -63,14 +63,8 @@ export class ProductModel {
   @ApiProperty({ example: false, description: 'True if disabled from app display' })
   disabled: boolean;
 
-  @ApiProperty({ example: false })
-  invisible: boolean;
-
-  @ApiProperty({ nullable: true })
-  scrapedAt: Date | null;
-
-  @ApiProperty({ nullable: true })
-  sourceUrl: string | null;
+  @ApiProperty({ example: false, description: 'True if soft-deleted' })
+  isDelete: boolean;
 
   @ApiProperty()
   createdAt: Date;

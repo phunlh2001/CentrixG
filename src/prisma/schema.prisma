@@ -57,9 +57,7 @@ model Product {
   platforms  String[] @default([])
 
   disabled  Boolean   @default(false) // display toggle (true == hidden/disabled in app)
-  invisible Boolean   @default(false) // soft-deleted
-  scrapedAt DateTime?
-  sourceUrl String?
+  isDelete  Boolean   @default(false) // soft-deleted
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -83,7 +81,7 @@ model Product {
   productCategories ProductCategory[]
 
   @@index([disabled])
-  @@index([invisible])
+  @@index([isDelete])
   @@map("products")
 }
 

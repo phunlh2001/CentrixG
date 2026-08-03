@@ -4,7 +4,7 @@ import { CreateProductDto } from './create-product.dto';
 
 /**
  * All CreateProductDto fields (except `dlcs`, which are managed separately)
- * become optional. Additionally exposes the `invisible` flag so an admin can
+ * become optional. Additionally exposes the `isDelete` flag so an admin can
  * hide/unhide a product directly. When `pricing` is provided, only the
  * supplied currencies are updated.
  */
@@ -17,5 +17,5 @@ export class UpdateProductDto extends PartialType(
   })
   @IsOptional()
   @IsBoolean()
-  invisible?: boolean;
+  isDelete?: boolean;
 }

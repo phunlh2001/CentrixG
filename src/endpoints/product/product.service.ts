@@ -113,7 +113,7 @@ export class ProductService {
     const skip = (page - 1) * limit;
 
     const where: Prisma.ProductWhereInput = {
-      ...(query.includeHidden ? {} : { invisible: false }),
+      ...(query.includeHidden ? {} : { isDelete: false }),
       ...(query.search
         ? { name: { contains: query.search, mode: "insensitive" } }
         : {}),
@@ -171,7 +171,7 @@ export class ProductService {
       include: PRODUCT_INCLUDE,
     });
 
-    if (!product || (product.invisible && !includeHidden)) {
+    if (!product || (product.isDelete && !includeHidden)) {
       throw new NotFoundException(`Product ${id} not found`);
     }
 
@@ -212,7 +212,7 @@ export class ProductService {
   }
 
   /**
-   * Soft-deletes a product: sets invisible = true instead of removing it.
+   * Soft-deletes a product: sets isDelete = true instead of removing it.
    * DLC rows are left intact.
    */
   async softDelete(id: string): Promise<ProductModel> {
@@ -220,20 +220,20 @@ export class ProductService {
 
     const product = await this.prisma.product.update({
       where: { id },
-      data: { invisible: true },
+      data: { isDelete: true },
       include: PRODUCT_INCLUDE,
     });
     return this.toModel(product);
   }
 
   /**
-   * Soft-deletes many products atomically (invisible = true for all).
+   * Soft-deletes many products atomically (isDelete = true for all).
    */
   async softDeleteMany(dto: DeleteManyProductsDto): Promise<number> {
     return this.prisma.$transaction(async (tx) => {
       const { count } = await tx.product.updateMany({
         where: { id: { in: dto.ids } },
-        data: { invisible: true },
+        data: { isDelete: true },
       });
       return count;
     });
@@ -279,11 +279,11 @@ export class ProductService {
         );
       }
 
-      // Check if any product is invisible (hidden)
-      const invisibleProducts = products.filter((p) => p.invisible);
-      if (invisibleProducts.length > 0) {
+      // Check if any product is soft-deleted
+      const deletedProducts = products.filter((p) => p.isDelete);
+      if (deletedProducts.length > 0) {
         throw new BadRequestException(
-          `These products are not available for purchase: ${invisibleProducts
+          `These products are not available for purchase: ${deletedProducts
             .map((p) => p.name)
             .join(", ")}`,
         );
@@ -427,10 +427,8 @@ export class ProductService {
         createdAt: d.createdAt,
         updatedAt: d.updatedAt,
       })),
-      invisible: product.invisible,
       disabled: product.disabled,
-      scrapedAt: product.scrapedAt,
-      sourceUrl: product.sourceUrl,
+      isDelete: product.isDelete,
       createdAt: product.createdAt,
       updatedAt: product.updatedAt,
     };
@@ -533,7 +531,7 @@ export class ProductService {
       ...(dto.categories !== undefined && { categories: dto.categories }),
       ...(dto.tags !== undefined && { tags: dto.tags }),
       ...(dto.platforms !== undefined && { platforms: dto.platforms }),
-      ...(dto.invisible !== undefined && { invisible: dto.invisible }),
+      ...(dto.isDelete !== undefined && { isDelete: dto.isDelete }),
     };
   }
 }
