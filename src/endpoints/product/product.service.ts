@@ -37,6 +37,7 @@ export interface PaginatedResult<T> {
 const PRODUCT_INCLUDE = {
   prices: true,
   dlcs: true,
+  categories: true,
 } satisfies Prisma.ProductInclude;
 
 type ProductWithRelations = Prisma.ProductGetPayload<{
@@ -114,7 +115,16 @@ export class ProductService {
     const where: Prisma.ProductWhereInput = {
       ...(query.includeHidden ? {} : { isDelete: false }),
       ...(query.search
-        ? { name: { contains: query.search, mode: "insensitive" } }
+        ? {
+            OR: [
+              { name: { contains: query.search, mode: "insensitive" } },
+              {
+                categories: {
+                  some: { name: { contains: query.search, mode: "insensitive" } },
+                },
+              },
+            ],
+          }
         : {}),
       AND: [
         { prices: { some: { currency: Currency.VND, amount: { gt: 0 } } } },
@@ -170,7 +180,7 @@ export class ProductService {
   }
 
   /**
-   * Updates a product (admins). Scalar fields, categories and tags are
+   * Updates a product (admins). Scalar fields and categories are
    * replaced when provided; when `pricing` is supplied, all currency rows
    * are upserted (missing currencies reset to 0). Runs in a transaction.
    */
@@ -182,6 +192,15 @@ export class ProductService {
         where: { id },
         data: this.toUpdateInput(dto),
       });
+
+      if (dto.categories !== undefined) {
+        await tx.category.deleteMany({ where: { productId: id } });
+        if (dto.categories.length > 0) {
+          await tx.category.createMany({
+            data: dto.categories.map((name) => ({ productId: id, name })),
+          });
+        }
+      }
 
       if (dto.pricing) {
         for (const { currency, amount } of this.pricingRows(dto.pricing)) {
@@ -363,9 +382,7 @@ export class ProductService {
       releaseDate: product.releaseDate,
       developer: product.developer,
       publisher: product.publisher,
-      genres: product.genres,
-      categories: product.categories,
-      tags: product.tags,
+      categories: product.categories.map((c) => c.name),
       platforms: product.platforms,
       dlcs: product.dlcs.map((d: DlcModel): DlcModel => ({
         id: d.id,
@@ -444,13 +461,17 @@ export class ProductService {
       releaseDate: dto.releaseDate ? new Date(dto.releaseDate) : null,
       developer: dto.developer,
       publisher: dto.publisher,
-      genres: dto.genres ?? [],
-      categories: dto.categories ?? [],
-      tags: dto.tags ?? [],
       platforms: dto.platforms ?? [],
       prices: {
         create: this.pricingRows(dto.pricing),
       },
+      ...(dto.categories && dto.categories.length > 0
+        ? {
+            categories: {
+              create: dto.categories.map((name) => ({ name })),
+            },
+          }
+        : {}),
       ...(dto.dlcs && dto.dlcs.length > 0
         ? {
             dlcs: {
@@ -475,9 +496,6 @@ export class ProductService {
       }),
       ...(dto.developer !== undefined && { developer: dto.developer }),
       ...(dto.publisher !== undefined && { publisher: dto.publisher }),
-      ...(dto.genres !== undefined && { genres: dto.genres }),
-      ...(dto.categories !== undefined && { categories: dto.categories }),
-      ...(dto.tags !== undefined && { tags: dto.tags }),
       ...(dto.platforms !== undefined && { platforms: dto.platforms }),
       ...(dto.isDelete !== undefined && { isDelete: dto.isDelete }),
     };

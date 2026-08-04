@@ -61,34 +61,16 @@ export class CreateProductDto {
   @IsString()
   publisher?: string;
 
-  @ApiPropertyOptional({ type: [String], example: ['Action', 'Strategy'] })
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  @Type(() => String)
-  genres?: string[];
-
   @ApiPropertyOptional({
     type: [String],
-    description: 'Broad gameplay classifications.',
-    example: ['Singleplayer', 'Multiplayer', 'Online Co-op'],
+    description: 'Category names associated with the product.',
+    example: ['Action', 'Strategy', 'Single-player'],
   })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
   @Type(() => String)
   categories?: string[];
-
-  @ApiPropertyOptional({
-    type: [String],
-    description: 'Steam tags (independent from categories).',
-    example: ['Open World', 'RPG', 'Action'],
-  })
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  @Type(() => String)
-  tags?: string[];
 
   @ApiPropertyOptional({
     type: [String],

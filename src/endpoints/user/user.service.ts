@@ -188,6 +188,7 @@ export class UserService {
             prices: true,
             dlcs: true,
             manifests: true,
+            categories: true,
           },
         },
       },
@@ -219,9 +220,7 @@ export class UserService {
         releaseDate: product.releaseDate,
         developer: product.developer,
         publisher: product.publisher,
-        genres: product.genres,
-        categories: product.categories,
-        tags: product.tags,
+        categories: product.categories.map((c) => c.name),
         platforms: product.platforms,
         dlcs: product.dlcs.map(
           (d): DlcModel => ({

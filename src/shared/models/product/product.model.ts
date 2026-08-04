@@ -4,7 +4,7 @@ import { PricingModel } from './pricing.model';
 
 /**
  * Representation of a product as returned by the API, including its complete
- * multi-currency pricing and any DLCs.
+ * multi-currency pricing, DLCs, and categories.
  */
 export class ProductModel {
   @ApiProperty({ example: '9c1f...uuid' })
@@ -37,22 +37,12 @@ export class ProductModel {
   @ApiProperty({ nullable: true, example: 'Valve' })
   publisher: string | null;
 
-  @ApiProperty({ type: [String], example: ['Action', 'Strategy'] })
-  genres: string[];
-
   @ApiProperty({
     type: [String],
-    description: 'Broad gameplay classifications.',
-    example: ['Singleplayer', 'Multiplayer'],
+    description: 'Categories associated with the product.',
+    example: ['Action', 'Strategy', 'Single-player'],
   })
   categories: string[];
-
-  @ApiProperty({
-    type: [String],
-    description: 'Steam tags for search/filtering.',
-    example: ['Open World', 'RPG', 'Action'],
-  })
-  tags: string[];
 
   @ApiProperty({ type: [String], example: ['windows', 'linux'] })
   platforms: string[];

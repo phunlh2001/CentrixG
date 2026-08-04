@@ -43,13 +43,10 @@ model Product {
   developer   String?
   publisher   String?
 
-  genres     String[] @default([])
-  categories String[] @default([])
-  tags       String[] @default([])
-  platforms  String[] @default([])
+  platforms String[] @default([])
 
-  disabled  Boolean   @default(false) // display toggle (true == hidden/disabled in app)
-  isDelete  Boolean   @default(false) // soft-deleted
+  disabled Boolean @default(false) // display toggle (true == hidden/disabled in app)
+  isDelete Boolean @default(false) // soft-deleted
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -60,15 +57,20 @@ model Product {
   // Downloadable content belonging to this game.
   dlcs DLC[]
 
-  // Steam manifest and Lua script files linked by appId.
+  // Steam manifest files linked by appId.
   manifests ManifestFile[]
 
   // Users who explicitly own this game (many-to-many direct relation).
   owners User[] @relation("UserProducts")
 
-  // Linked categories/platforms (EA, Ubisoft, Denuvo, Rockstar, etc.).
-  productCategories ProductCategory[]
+  // Linked game categories (many-to-many via Category model).
+  categories Category[]
 
+  // Protection platform / launcher integration type (1:N relation to Type model).
+  typeId Int?
+  type   Type? @relation(fields: [typeId], references: [id], onDelete: SetNull)
+
+  @@index([typeId])
   @@index([disabled])
   @@index([isDelete])
   @@map("products")
@@ -115,34 +117,32 @@ model ManifestFile {
   @@map("manifest_files")
 }
 
-/// Game categories/protection platforms (e.g. EA, Ubisoft, Denuvo, Rockstar).
+/// Product categories (combined genres and categories per product).
 model Category {
-  id          Int      @id @default(autoincrement())
-  name        String   @unique
-  description String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(uuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  productCategories ProductCategory[]
-
+  @@unique([productId, name])
+  @@index([productId])
+  @@index([name])
   @@map("categories")
 }
 
-/// Many-to-many join model connecting Product (by AppID) to Category with a download link (dataUrl).
-model ProductCategory {
-  id         String   @id @default(uuid())
-  appId      Int
-  product    Product  @relation(fields: [appId], references: [appId], onDelete: Cascade)
-  categoryId Int
-  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  dataUrl    String?  @db.Text // Download link for luascript / category payload
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+/// Protection platforms and launcher integration types (e.g. EA, Ubisoft, Denuvo, Rockstar).
+model Type {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique
+  description String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-  @@unique([appId, categoryId])
-  @@index([appId])
-  @@index([categoryId])
-  @@map("product_categories")
+  products Product[]
+
+  @@map("types")
 }
 
 /// Customer, Streamer, or Admin account.
