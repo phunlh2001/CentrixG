@@ -232,6 +232,7 @@ export class UserService {
             updatedAt: d.updatedAt,
           }),
         ),
+        manifestUrl: latestManifest?.manifestUrl ?? null,
         disabled: product.disabled,
         isDelete: product.isDelete,
         createdAt: product.createdAt,

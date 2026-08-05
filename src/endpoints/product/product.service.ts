@@ -33,11 +33,12 @@ export interface PaginatedResult<T> {
   totalPages: number;
 }
 
-/** Relations always loaded so responses can expose pricing + DLCs. */
+/** Relations always loaded so responses can expose pricing, DLCs, categories, and manifests. */
 const PRODUCT_INCLUDE = {
   prices: true,
   dlcs: true,
   categories: true,
+  manifests: true,
 } satisfies Prisma.ProductInclude;
 
 type ProductWithRelations = Prisma.ProductGetPayload<{
@@ -101,8 +102,8 @@ export class ProductService {
   }
 
   /**
-   * Lists products with pagination. Excludes products already owned by the user
-   * if authenticated (UserProducts & active user_games).
+   * Lists products with pagination. Only returns products that have a manifest file.
+   * Excludes products already owned by the user if authenticated.
    */
   async findAll(
     query: QueryProductDto,
@@ -114,6 +115,7 @@ export class ProductService {
 
     const where: Prisma.ProductWhereInput = {
       ...(query.includeHidden ? {} : { isDelete: false }),
+      manifests: { some: {} },
       ...(query.search
         ? {
             OR: [
@@ -163,17 +165,22 @@ export class ProductService {
   }
 
   /**
-   * Fetches one product (including its DLCs and pricing) by id. Hidden
-   * products are returned only when `includeHidden` is true (admin path).
+   * Fetches one product by id (including DLCs, pricing, categories, and manifest).
+   * Only returns products that have a manifest file. Hidden products are returned
+   * only when `includeHidden` is true (admin path).
    */
   async findOne(id: string, includeHidden = false): Promise<ProductModel> {
-    const product = await this.prisma.product.findUnique({
-      where: { id },
+    const product = await this.prisma.product.findFirst({
+      where: {
+        id,
+        manifests: { some: {} },
+        ...(includeHidden ? {} : { isDelete: false }),
+      },
       include: PRODUCT_INCLUDE,
     });
 
-    if (!product || (product.isDelete && !includeHidden)) {
-      throw new NotFoundException(`Product ${id} not found`);
+    if (!product) {
+      throw new NotFoundException(`Product ${id} not found or missing manifest`);
     }
 
     return this.toModel(product);
@@ -372,6 +379,11 @@ export class ProductService {
   // --- mapping -------------------------------------------------------------
 
   private toModel(product: ProductWithRelations): ProductModel {
+    const manifest =
+      product.manifests && product.manifests.length > 0
+        ? product.manifests[0]
+        : null;
+
     return {
       id: product.id,
       appId: product.appId,
@@ -392,6 +404,7 @@ export class ProductService {
         createdAt: d.createdAt,
         updatedAt: d.updatedAt,
       })),
+      manifestUrl: manifest?.manifestUrl ?? null,
       disabled: product.disabled,
       isDelete: product.isDelete,
       createdAt: product.createdAt,

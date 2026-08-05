@@ -4,7 +4,7 @@ import { PricingModel } from './pricing.model';
 
 /**
  * Representation of a product as returned by the API, including its complete
- * multi-currency pricing, DLCs, and categories.
+ * multi-currency pricing, DLCs, categories, and manifest download URL.
  */
 export class ProductModel {
   @ApiProperty({ example: '9c1f...uuid' })
@@ -49,6 +49,13 @@ export class ProductModel {
 
   @ApiProperty({ type: [DlcModel], description: 'Downloadable content.' })
   dlcs: DlcModel[];
+
+  @ApiProperty({
+    nullable: true,
+    example: 'https://cdn.example.com/manifests/570.zip',
+    description: 'Steam manifest file URL linked by AppID',
+  })
+  manifestUrl: string | null;
 
   @ApiProperty({ example: false, description: 'True if disabled from app display' })
   disabled: boolean;
