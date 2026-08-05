@@ -6,6 +6,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  ParseIntPipe,
   ParseUUIDPipe,
   Patch,
   Post,
@@ -133,12 +134,24 @@ export class ProductController {
     return this.productService.findAll({ ...query }, userId);
   }
 
+  @Get("app/:appId")
+  @Public()
+  @ApiOperation({ summary: "Get one product by Steam AppID (currently public / anonymous)" })
+  @ApiOkResponse({ type: ProductModel })
+  @ApiNotFoundResponse({ description: "Product not found or missing manifest" })
+  findByAppId(@Param("appId", ParseIntPipe) appId: number): Promise<ProductModel> {
+    return this.productService.findByAppId(appId);
+  }
+
   @Get(":id")
   @Public()
-  @ApiOperation({ summary: "Get one product by id" })
+  @ApiOperation({ summary: "Get one product by id (UUID)" })
   @ApiOkResponse({ type: ProductModel })
-  @ApiNotFoundResponse({ description: "Product not found" })
-  findOne(@Param("id", ParseUUIDPipe) id: string): Promise<ProductModel> {
+  @ApiNotFoundResponse({ description: "Product not found or missing manifest" })
+  findOne(@Param("id") id: string): Promise<ProductModel> {
+    if (/^\d+$/.test(id)) {
+      return this.productService.findByAppId(parseInt(id, 10));
+    }
     return this.productService.findOne(id);
   }
 
