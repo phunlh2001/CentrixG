@@ -187,24 +187,20 @@ export class ProductService {
   }
 
   /**
-   * Fetches one product by Steam AppID (including DLCs, pricing, categories, and manifest).
-   * Only returns products that have a manifest file. Hidden products are returned
-   * only when `includeHidden` is true (admin path).
+   * Fetches one product by Steam AppID (including DLCs, pricing, categories, and manifest if available).
+   * Hidden products are returned only when `includeHidden` is true (admin path).
    */
   async findByAppId(appId: number, includeHidden = false): Promise<ProductModel> {
     const product = await this.prisma.product.findFirst({
       where: {
         appId,
-        manifests: { some: {} },
         ...(includeHidden ? {} : { isDelete: false }),
       },
       include: PRODUCT_INCLUDE,
     });
 
     if (!product) {
-      throw new NotFoundException(
-        `Product with AppID ${appId} not found or missing manifest`,
-      );
+      throw new NotFoundException(`Product with AppID ${appId} not found`);
     }
 
     return this.toModel(product);
