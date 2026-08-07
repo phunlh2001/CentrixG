@@ -134,15 +134,29 @@ model Category {
 
 /// Protection platforms and launcher integration types (e.g. EA, Ubisoft, Denuvo, Rockstar).
 model Type {
-  id          Int       @id @default(autoincrement())
-  name        String    @unique
+  id          Int          @id @default(autoincrement())
+  name        String       @unique
   description String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 
-  products Product[]
+  products     Product[]
+  thirdParties ThirdParty[]
 
   @@map("types")
+}
+
+/// Third-party files linked to a protection/launcher Type (1:N relation).
+model ThirdParty {
+  id        String   @id @default(uuid())
+  typeId    Int
+  type      Type     @relation(fields: [typeId], references: [id], onDelete: Cascade)
+  fileUrl   String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([typeId])
+  @@map("third_party")
 }
 
 /// Customer, Streamer, or Admin account.
