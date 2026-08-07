@@ -47,6 +47,7 @@ model Product {
 
   disabled Boolean @default(false) // display toggle (true == hidden/disabled in app)
   isDelete Boolean @default(false) // soft-deleted
+  isDenuvo Boolean @default(false) // Denuvo DRM protection flag
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -73,6 +74,7 @@ model Product {
   @@index([typeId])
   @@index([disabled])
   @@index([isDelete])
+  @@index([isDenuvo])
   @@map("products")
 }
 
@@ -138,7 +140,6 @@ model Type {
   name        String       @unique
   description String?
   createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
 
   products     Product[]
   thirdParties ThirdParty[]
@@ -153,7 +154,6 @@ model ThirdParty {
   type      Type     @relation(fields: [typeId], references: [id], onDelete: Cascade)
   fileUrl   String   @db.Text
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 
   @@index([typeId])
   @@map("third_party")

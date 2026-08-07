@@ -2,6 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   IsArray,
+  IsBoolean,
   IsDateString,
   IsInt,
   IsOptional,
@@ -91,4 +92,9 @@ export class CreateProductDto {
   @ValidateNested({ each: true })
   @Type(() => CreateDlcDto)
   dlcs?: CreateDlcDto[];
+
+  @ApiPropertyOptional({ example: false, description: 'True if product has Denuvo protection' })
+  @IsOptional()
+  @IsBoolean()
+  isDenuvo?: boolean;
 }

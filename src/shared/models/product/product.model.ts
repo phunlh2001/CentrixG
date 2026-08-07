@@ -63,6 +63,9 @@ export class ProductModel {
   @ApiProperty({ example: false, description: 'True if soft-deleted' })
   isDelete: boolean;
 
+  @ApiProperty({ example: false, description: 'True if product has Denuvo DRM protection' })
+  isDenuvo: boolean;
+
   @ApiProperty()
   createdAt: Date;
 

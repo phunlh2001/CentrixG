@@ -427,6 +427,7 @@ export class ProductService {
       manifestUrl: manifest?.manifestUrl ?? null,
       disabled: product.disabled,
       isDelete: product.isDelete,
+      isDenuvo: product.isDenuvo,
       createdAt: product.createdAt,
       updatedAt: product.updatedAt,
     };
@@ -495,6 +496,7 @@ export class ProductService {
       developer: dto.developer,
       publisher: dto.publisher,
       platforms: dto.platforms ?? [],
+      isDenuvo: dto.isDenuvo ?? false,
       prices: {
         create: this.pricingRows(dto.pricing),
       },
@@ -531,6 +533,7 @@ export class ProductService {
       ...(dto.publisher !== undefined && { publisher: dto.publisher }),
       ...(dto.platforms !== undefined && { platforms: dto.platforms }),
       ...(dto.isDelete !== undefined && { isDelete: dto.isDelete }),
+      ...(dto.isDenuvo !== undefined && { isDenuvo: dto.isDenuvo }),
     };
   }
 }

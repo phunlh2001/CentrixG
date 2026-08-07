@@ -235,6 +235,7 @@ export class UserService {
         manifestUrl: latestManifest?.manifestUrl ?? null,
         disabled: product.disabled,
         isDelete: product.isDelete,
+        isDenuvo: product.isDenuvo,
         createdAt: product.createdAt,
         updatedAt: product.updatedAt,
       };
