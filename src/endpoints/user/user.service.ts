@@ -244,6 +244,7 @@ export class UserService {
         ? {
             id: latestManifest.id,
             appId: latestManifest.appId,
+            name: product.name,
             manifestUrl: latestManifest.manifestUrl,
             createdAt: latestManifest.createdAt,
             updatedAt: latestManifest.updatedAt,

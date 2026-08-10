@@ -7,6 +7,9 @@ export class ManifestModel {
   @ApiProperty({ example: 570, description: 'Steam AppID' })
   appId: number;
 
+  @ApiProperty({ example: 'Dota 2', description: 'Product name associated with Steam AppID' })
+  name: string;
+
   @ApiProperty({
     nullable: true,
     example: 'https://example.com/manifests/570.json',

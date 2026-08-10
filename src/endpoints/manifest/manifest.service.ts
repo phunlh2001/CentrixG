@@ -1,8 +1,18 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { ManifestFile } from '../../prisma/prisma-client';
+import { Prisma } from '../../prisma/prisma-client';
 import { ManifestModel, UpdateManifestDto } from '@app/shared';
 import { SupabaseStorageService } from '../../services/supabase/supabase-storage.service';
+
+const MANIFEST_INCLUDE = {
+  product: {
+    select: { name: true },
+  },
+} satisfies Prisma.ManifestFileInclude;
+
+type ManifestWithProduct = Prisma.ManifestFileGetPayload<{
+  include: typeof MANIFEST_INCLUDE;
+}>;
 
 @Injectable()
 export class ManifestService {
@@ -12,11 +22,12 @@ export class ManifestService {
   ) {}
 
   /**
-   * Retrieves the manifest record (manifestUrl) for a Steam AppID.
+   * Retrieves the manifest record (manifestUrl) and product name for a Steam AppID.
    */
   async findByAppId(appId: number): Promise<ManifestModel> {
     const manifest = await this.prisma.manifestFile.findUnique({
       where: { appId },
+      include: MANIFEST_INCLUDE,
     });
 
     if (!manifest) {
@@ -56,6 +67,7 @@ export class ManifestService {
       update: {
         manifestUrl: publicUrl,
       },
+      include: MANIFEST_INCLUDE,
     });
 
     return this.toModel(manifest);
@@ -79,6 +91,7 @@ export class ManifestService {
       update: {
         ...(dto.manifestUrl !== undefined && { manifestUrl: dto.manifestUrl }),
       },
+      include: MANIFEST_INCLUDE,
     });
 
     return this.toModel(manifest);
@@ -97,10 +110,11 @@ export class ManifestService {
     }
   }
 
-  private toModel(entity: ManifestFile): ManifestModel {
+  private toModel(entity: ManifestWithProduct): ManifestModel {
     return {
       id: entity.id,
       appId: entity.appId,
+      name: entity.product?.name ?? '',
       manifestUrl: entity.manifestUrl ?? null,
       createdAt: entity.createdAt,
       updatedAt: entity.updatedAt,
