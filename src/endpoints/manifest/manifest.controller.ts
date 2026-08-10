@@ -95,7 +95,6 @@ export class ManifestController {
   }
 
   @Patch(':appId')
-  @Public()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Update or create manifestUrl for a Steam AppID directly',

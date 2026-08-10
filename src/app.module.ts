@@ -18,6 +18,7 @@ import { MailModule } from './services/mail/mail.module';
 import { ManifestModule } from './endpoints/manifest/manifest.module';
 import { UserModule } from './endpoints/user/user.module';
 import { TokenModule } from './services/token/token.module';
+import { ThirdPartyModule } from './endpoints/third-party/third-party.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { TokenModule } from './services/token/token.module';
     ProductModule,
     MailModule,
     ManifestModule,
+    ThirdPartyModule,
   ],
   controllers: [AppController],
   providers: [
