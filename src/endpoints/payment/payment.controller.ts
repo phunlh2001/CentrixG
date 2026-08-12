@@ -1,4 +1,11 @@
-import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Headers,
+  HttpCode,
+  HttpStatus,
+  Post,
+} from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOkResponse,
@@ -21,12 +28,15 @@ export class PaymentController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary:
-      'Receive SePay IPN webhook notification and update order/bill status (requires Bearer token)',
+      'Receive SePay IPN webhook notification and update order/bill status (authenticated via Bearer token and SePay secret)',
   })
   @ApiOkResponse({ type: SepayWebhookResponseModel })
   sepayWebhook(
+    @Headers('authorization') authHeader: string,
+    @Headers('x-sepay-secret') sepayHeader: string,
     @Body() dto: SepayWebhookDto,
   ): Promise<SepayWebhookResponseModel> {
+    this.sepayService.verifyWebhookAuth(authHeader || sepayHeader);
     return this.sepayService.processWebhook(dto);
   }
 }

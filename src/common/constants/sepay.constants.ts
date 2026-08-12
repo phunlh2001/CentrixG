@@ -1,6 +1,6 @@
 /**
  * Configuration constants for SePay payment gateway and banking credentials.
- * Defaults match standard SePay Vietcombank merchant setup if env vars are omitted.
+ * Reads environment variables from .env to avoid exposing URLs or credentials in source code.
  */
 export const SEPAY_CONFIG = {
   accountNumber: process.env.SEPAY_ACCOUNT_NUMBER || '0111000373824',
@@ -8,4 +8,5 @@ export const SEPAY_CONFIG = {
   bankName: process.env.SEPAY_BANK_NAME || 'Vietcombank',
   apiKey: process.env.SEPAY_API_KEY || '',
   webhookSecret: process.env.SEPAY_WEBHOOK_SECRET || '',
+  apiUrl: process.env.SEPAY_API_URL || '',
 };
