@@ -1,4 +1,4 @@
-import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
 import { PrismaService } from '../../prisma/prisma.service';
 import { SEPAY_CONFIG } from '../../common/constants/sepay.constants';
@@ -32,30 +32,6 @@ export class SepayService {
   private isPolling = false;
 
   constructor(private readonly prisma: PrismaService) {}
-
-  /**
-   * Validates the incoming SePay IPN webhook authorization token / header against SEPAY_WEBHOOK_SECRET.
-   */
-  verifyWebhookAuth(authHeader?: string): void {
-    const secret = SEPAY_CONFIG.webhookSecret;
-    if (!secret) {
-      return;
-    }
-
-    if (!authHeader) {
-      throw new UnauthorizedException('Missing SePay webhook Authorization header');
-    }
-
-    // SePay IPN webhook headers may be passed as:
-    // "Apikey <secret>", "Bearer <secret>", or raw secret string
-    const token = authHeader.replace(/^(Apikey|Bearer)\s+/i, '').trim();
-
-    if (token !== secret.trim()) {
-      throw new UnauthorizedException(
-        'Invalid SePay webhook secret authorization token',
-      );
-    }
-  }
 
   /**
    * Processes SePay IPN webhook notification, extracts orderCode,
