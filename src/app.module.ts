@@ -19,6 +19,8 @@ import { ManifestModule } from './endpoints/manifest/manifest.module';
 import { UserModule } from './endpoints/user/user.module';
 import { TokenModule } from './services/token/token.module';
 import { ThirdPartyModule } from './endpoints/third-party/third-party.module';
+import { OrdersModule } from './endpoints/orders/orders.module';
+import { PaymentModule } from './endpoints/payment/payment.module';
 
 @Module({
   imports: [
@@ -33,6 +35,8 @@ import { ThirdPartyModule } from './endpoints/third-party/third-party.module';
     MailModule,
     ManifestModule,
     ThirdPartyModule,
+    OrdersModule,
+    PaymentModule,
   ],
   controllers: [AppController],
   providers: [
