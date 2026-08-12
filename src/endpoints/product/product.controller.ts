@@ -10,6 +10,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
   Query,
 } from "@nestjs/common";
 import {
@@ -26,13 +27,10 @@ import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { Public } from "../../common/decorators/public.decorator";
 import { Roles } from "../../common/decorators/roles.decorator";
 import {
-  BulkResultDto,
   MessageResponseDto,
 } from "../../common/dto/message-response.dto";
 import {
-  CreateManyProductsDto,
   CreateProductDto,
-  DeleteManyProductsDto,
   PaginatedProductsModel,
   ProductModel,
   PurchaseManyProductsDto,
@@ -66,18 +64,7 @@ export class ProductController {
   }
 
   // --- Admin: write operations --------------------------------------------
-
-  @Post("bulk")
-  // @Roles(Role.ADMIN)
-  @Public()
-  @ApiOperation({ summary: "Create many products in one transaction" })
-  @ApiCreatedResponse({ type: [ProductModel] })
-  @ApiConflictResponse({ description: "One or more appIds already exist" })
-  createMany(@Body() dto: CreateManyProductsDto): Promise<ProductModel[]> {
-    return this.productService.createMany(dto);
-  }
-
-  @Patch(":id")
+  @Put(":id")
   @Roles(Role.ADMIN)
   @ApiOperation({ summary: "Update a product / toggle visibility (admin)" })
   @ApiOkResponse({ type: ProductModel })
@@ -89,21 +76,7 @@ export class ProductController {
     return this.productService.update(id, dto);
   }
 
-  @Delete("bulk")
-  @Roles(Role.ADMIN)
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({
-    summary: "Soft-delete many products (admin). Sets invisible = true.",
-  })
-  @ApiOkResponse({ type: BulkResultDto })
-  async softDeleteMany(
-    @Body() dto: DeleteManyProductsDto,
-  ): Promise<BulkResultDto> {
-    const count = await this.productService.softDeleteMany(dto);
-    return { count, message: `${count} product(s) hidden` };
-  }
-
-  @Delete(":id")
+  @Patch(":id")
   @Roles(Role.ADMIN)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({

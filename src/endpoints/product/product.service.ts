@@ -66,42 +66,6 @@ export class ProductService {
   }
 
   /**
-   * Creates many products atomically. If any row violates a constraint,
-   * the whole batch is rolled back.
-   */
-  async createMany(dto: CreateManyProductsDto): Promise<ProductModel[]> {
-    const appIds = dto.products.map((p: CreateProductDto) => p.appId);
-    this.assertNoDuplicateAppIds(appIds);
-
-    const created = await this.prisma.$transaction(async (tx) => {
-      const clashes = await tx.product.findMany({
-        where: { appId: { in: appIds } },
-        select: { appId: true },
-      });
-
-      if (clashes.length > 0) {
-        throw new ConflictException(
-          `These appIds already exist: ${clashes
-            .map((c) => c.appId)
-            .join(", ")}`,
-        );
-      }
-
-      // createMany doesn't support nested writes, so create sequentially.
-      return Promise.all(
-        dto.products.map((product: CreateProductDto) =>
-          tx.product.create({
-            data: this.toCreateInput(product),
-            include: PRODUCT_INCLUDE,
-          }),
-        ),
-      );
-    });
-
-    return created.map((p: ProductWithRelations) => this.toModel(p));
-  }
-
-  /**
    * Lists products with pagination. Only returns products that have a manifest file.
    * Excludes products already owned by the user if authenticated.
    */
@@ -261,19 +225,6 @@ export class ProductService {
       include: PRODUCT_INCLUDE,
     });
     return this.toModel(product);
-  }
-
-  /**
-   * Soft-deletes many products atomically (isDelete = true for all).
-   */
-  async softDeleteMany(dto: DeleteManyProductsDto): Promise<number> {
-    return this.prisma.$transaction(async (tx) => {
-      const { count } = await tx.product.updateMany({
-        where: { id: { in: dto.ids } },
-        data: { isDelete: true },
-      });
-      return count;
-    });
   }
 
   /**
