@@ -21,6 +21,7 @@ import { TokenModule } from './services/token/token.module';
 import { ThirdPartyModule } from './endpoints/third-party/third-party.module';
 import { OrdersModule } from './endpoints/orders/orders.module';
 import { PaymentModule } from './endpoints/payment/payment.module';
+import { OverviewModule } from './endpoints/admin/overview/overview.module';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { PaymentModule } from './endpoints/payment/payment.module';
     ThirdPartyModule,
     OrdersModule,
     PaymentModule,
+    OverviewModule,
   ],
   controllers: [AppController],
   providers: [

@@ -5,3 +5,4 @@ export * from './manifest';
 export * from './third-party';
 export * from './order';
 export * from './payment';
+export * from './admin';

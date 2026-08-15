@@ -15,6 +15,7 @@ enum Role {
   ADMIN
   CUSTOMER
   STREAMER
+  MOD
 }
 
 /// Supported pricing currencies.
