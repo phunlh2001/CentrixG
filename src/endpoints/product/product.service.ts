@@ -31,12 +31,13 @@ export interface PaginatedResult<T> {
   totalPages: number;
 }
 
-/** Relations always loaded so responses can expose pricing, DLCs, categories, and manifests. */
+/** Relations always loaded so responses can expose pricing, DLCs, categories, type, and manifests. */
 const PRODUCT_INCLUDE = {
   prices: true,
   dlcs: true,
   categories: true,
   manifests: true,
+  type: true,
 } satisfies Prisma.ProductInclude;
 
 type ProductWithRelations = Prisma.ProductGetPayload<{
@@ -343,6 +344,34 @@ export class ProductService {
     return purchasedProducts.map((p) => this.toModel(p));
   }
 
+  async updateCategory(
+    productId: string,
+    categoryName: string,
+  ): Promise<void> {
+    await this.ensureExists(productId);
+
+    if (!categoryName) {
+      await this.prisma.product.update({
+        where: { id: productId },
+        data: { typeId: null },
+      });
+      return;
+    }
+
+    const type = await this.prisma.type.findFirst({
+      where: { name: { equals: categoryName, mode: 'insensitive' } },
+    });
+
+    if (!type) {
+      throw new BadRequestException(`Category '${categoryName}' not found`);
+    }
+
+    await this.prisma.product.update({
+      where: { id: productId },
+      data: { typeId: type.id },
+    });
+  }
+
   // --- mapping -------------------------------------------------------------
 
   private toModel(product: ProductWithRelations): ProductModel {
@@ -362,6 +391,12 @@ export class ProductService {
       developer: product.developer,
       publisher: product.publisher,
       categories: product.categories.map((c) => c.name),
+      type: product.type
+        ? {
+            id: product.type.id,
+            name: product.type.name,
+          }
+        : null,
       platforms: product.platforms,
       dlcs: product.dlcs.map((d: DlcModel): DlcModel => ({
         id: d.id,
@@ -400,22 +435,6 @@ export class ProductService {
     });
     if (!found) {
       throw new NotFoundException(`Product ${id} not found`);
-    }
-  }
-
-  private assertNoDuplicateAppIds(appIds: number[]): void {
-    const seen = new Set<number>();
-    const dupes = new Set<number>();
-    for (const appId of appIds) {
-      if (seen.has(appId)) {
-        dupes.add(appId);
-      }
-      seen.add(appId);
-    }
-    if (dupes.size > 0) {
-      throw new ConflictException(
-        `Duplicate appIds in request: ${[...dupes].join(", ")}`,
-      );
     }
   }
 

@@ -2,9 +2,17 @@ import { ApiProperty } from '@nestjs/swagger';
 import { DlcModel } from './dlc.model';
 import { PricingModel } from './pricing.model';
 
+export class ProductTypeInfoModel {
+  @ApiProperty({ example: 1 })
+  id: number;
+
+  @ApiProperty({ example: 'Rockstar' })
+  name: string;
+}
+
 /**
  * Representation of a product as returned by the API, including its complete
- * multi-currency pricing, DLCs, categories, and manifest download URL.
+ * multi-currency pricing, DLCs, categories, type, and manifest download URL.
  */
 export class ProductModel {
   @ApiProperty({ example: '9c1f...uuid' })
@@ -43,6 +51,13 @@ export class ProductModel {
     example: ['Action', 'Strategy', 'Single-player'],
   })
   categories: string[];
+
+  @ApiProperty({
+    nullable: true,
+    type: ProductTypeInfoModel,
+    description: 'Type / Category associated with the product (containing id and name)',
+  })
+  type?: ProductTypeInfoModel | null;
 
   @ApiProperty({ type: [String], example: ['windows', 'linux'] })
   platforms: string[];

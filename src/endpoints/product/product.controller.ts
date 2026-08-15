@@ -10,10 +10,10 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
-  Put,
   Query,
 } from "@nestjs/common";
 import {
+  ApiBadRequestResponse,
   ApiBearerAuth,
   ApiConflictResponse,
   ApiCreatedResponse,
@@ -36,6 +36,7 @@ import {
   PurchaseManyProductsDto,
   QueryProductDto,
   UpdateProductDto,
+  UpdateProductTypeDto,
 } from "@app/shared";
 import { PaginatedResult, ProductService } from "./product.service";
 
@@ -89,6 +90,21 @@ export class ProductController {
   ): Promise<MessageResponseDto> {
     await this.productService.softDelete(id);
     return { message: `Product ${id} hidden` };
+  }
+
+  // --- Admin: update type for product ----------------------------
+  @Patch(':id/type')
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Update the type / category of a product (admin only)' })
+  @ApiOkResponse({ type: MessageResponseDto })
+  @ApiNotFoundResponse({ description: 'Product not found' })
+  @ApiBadRequestResponse({ description: 'Category / type not found' })
+  async updateTypeOfProduct(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateProductTypeDto,
+  ): Promise<MessageResponseDto> {
+    await this.productService.updateCategory(id, dto.category);
+    return { message: `Product type updated` };
   }
 
   // --- Any authenticated user: read + purchase ----------------------------

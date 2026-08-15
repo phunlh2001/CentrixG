@@ -189,6 +189,7 @@ export class UserService {
             dlcs: true,
             manifests: true,
             categories: true,
+            type: true,
           },
         },
       },
@@ -221,6 +222,12 @@ export class UserService {
         developer: product.developer,
         publisher: product.publisher,
         categories: product.categories.map((c) => c.name),
+        type: product.type
+          ? {
+              id: product.type.id,
+              name: product.type.name,
+            }
+          : null,
         platforms: product.platforms,
         dlcs: product.dlcs.map(
           (d): DlcModel => ({
