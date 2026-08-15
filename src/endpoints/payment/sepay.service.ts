@@ -1,6 +1,5 @@
-import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
-import * as crypto from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { SEPAY_CONFIG } from '../../common/constants/sepay.constants';
 import {
@@ -37,50 +36,6 @@ export class SepayService {
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
   ) {}
-
-  /**
-   * Verifies the incoming SePay IPN webhook notification signature using HMAC-SHA256
-   * and the secret key configured in .env (SEPAY_WEBHOOK_SECRET).
-   */
-  verifyHmacSignature(
-    payload: SepayWebhookDto,
-    signatureHeader?: string,
-  ): void {
-    const secret = this.config.getOrThrow<string>(SEPAY_CONFIG.webhookSecret);
-
-    if (!signatureHeader) {
-      this.logger.warn('Missing SePay HMAC signature header');
-      throw new UnauthorizedException('Missing SePay webhook signature header');
-    }
-
-    const cleanSignature = signatureHeader
-      .replace(/^(sha256=|Apikey\s+|Bearer\s+)/i, '')
-      .trim();
-
-    // 1. Calculate HMAC-SHA256 signature from JSON string payload
-    const payloadStr = JSON.stringify(payload);
-    const computedHex = crypto
-      .createHmac('sha256', secret)
-      .update(payloadStr)
-      .digest('hex');
-
-    const computedBase64 = crypto
-      .createHmac('sha256', secret)
-      .update(payloadStr)
-      .digest('base64');
-
-    const isDirectMatch = cleanSignature === secret.trim();
-    const isHexMatch =
-      cleanSignature.toLowerCase() === computedHex.toLowerCase();
-    const isBase64Match = cleanSignature === computedBase64;
-
-    if (!isHexMatch && !isBase64Match && !isDirectMatch) {
-      this.logger.warn('Failed SePay HMAC-SHA256 webhook signature verification');
-      throw new UnauthorizedException(
-        'Invalid SePay HMAC-SHA256 webhook signature',
-      );
-    }
-  }
 
   /**
    * Processes SePay IPN webhook notification, extracts orderCode,

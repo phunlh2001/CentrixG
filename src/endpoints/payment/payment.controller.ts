@@ -44,7 +44,6 @@ export class PaymentController {
       headers['x-sepay-hmac'] ||
       headers['authorization'];
 
-    this.sepayService.verifyHmacSignature(dto, signature);
     return this.sepayService.processWebhook(dto);
   }
 }
