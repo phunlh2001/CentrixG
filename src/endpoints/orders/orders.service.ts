@@ -56,8 +56,8 @@ export class OrdersService {
 
     const { accountNumber, accountName, bankName } = SEPAY_CONFIG;
     const encodedAccountName = encodeURIComponent(accountName);
-    const qrCodeUrl = `https://img.vietqr.io/image/${bankName}-${accountNumber}-compact.png?amount=${dto.amount}&addInfo=${result.orderCode}&accountName=${encodedAccountName}`;
-
+    const qrCodeUrl = `https://vietqr.app/img?bank=${bankName}&acc=${accountNumber}&template=compact&amount=${dto.amount}&des=${result.orderCode}&showinfo=true&holder=${encodedAccountName}`;
+    
     return {
       orderCode: result.orderCode,
       amount: Number(result.amount),

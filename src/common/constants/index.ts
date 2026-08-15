@@ -10,6 +10,5 @@ export const CONFIG_ENV = {
   supabaseUrl: 'SUPABASE_URL',
   supabasePublishableKey: 'SUPABASE_PUBLISHABLE_KEY',
   supabaseSecretKey: 'SUPABASE_SECRET_KEY',
-  supabaseJwksUrl: 'SUPABASE_JWKS_URL',
   supabaseManifestBucket: 'SUPABASE_MANIFEST_BUCKET',
 };
