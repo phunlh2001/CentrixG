@@ -5,7 +5,7 @@ import { ApiProperty } from '@nestjs/swagger';
  */
 export class ThirdPartyFileUrlModel {
   @ApiProperty({
-    example: 'https://example.com/third-party/ubisoft-installer.exe',
+    example: 'https://example.com/third-party/installer.exe',
     description: 'URL of the third-party installer or file',
   })
   fileUrl: string;
