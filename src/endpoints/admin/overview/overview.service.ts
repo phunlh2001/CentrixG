@@ -6,7 +6,7 @@ import {
   TopSellerProductModel,
 } from '@app/shared';
 import { PrismaService } from '@app/prisma/prisma.service';
-import { Currency, PaymentStatus } from '@app/prisma/prisma-client';
+import { Currency, PaymentStatus, Role } from '@app/prisma/prisma-client';
 
 const USD_EXCHANGE_RATE = 25400; // VND per 1 USD
 const CNY_EXCHANGE_RATE = 3550; // VND per 1 CNY
@@ -98,15 +98,16 @@ export class OverviewService {
 
     // 3. Account Counters
     const activeAccountsCount = await this.prisma.user.count({
-      where: { isBlock: false },
+      where: { isBlock: false, role: { not: Role.ADMIN } },
     });
 
     const bannedAccountsCount = await this.prisma.user.count({
-      where: { isBlock: true },
+      where: { isBlock: true, role: { not: Role.ADMIN } },
     });
 
     // 4. Newly Created Accounts (Without passwordHash)
     const recentUsersRaw = await this.prisma.user.findMany({
+      where: { role: { not: Role.ADMIN } },
       take: 5,
       orderBy: { createdAt: 'desc' },
       select: {
