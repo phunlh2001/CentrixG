@@ -7,10 +7,14 @@ import {
   OrderStatusResponseModel,
 } from '@app/shared';
 import { Currency, PaymentStatus } from '../../prisma/prisma-client';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class OrdersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly config: ConfigService,
+  ) {}
 
   /**
    * Generates a unique orderCode, creates a pending Order & Bill record in DB,
@@ -54,7 +58,9 @@ export class OrdersService {
       return order;
     });
 
-    const { accountNumber, accountName, bankName } = SEPAY_CONFIG;
+    const accountNumber = this.config.getOrThrow<string>(SEPAY_CONFIG.accountNumber);
+    const accountName = this.config.getOrThrow<string>(SEPAY_CONFIG.accountName);
+    const bankName = this.config.getOrThrow<string>(SEPAY_CONFIG.bankName);
     const encodedAccountName = encodeURIComponent(accountName);
     const qrCodeUrl = `https://vietqr.app/img?bank=${bankName}&acc=${accountNumber}&template=compact&amount=${dto.amount}&des=${result.orderCode}&showinfo=true&holder=${encodedAccountName}`;
     
@@ -63,7 +69,7 @@ export class OrdersService {
       amount: Number(result.amount),
       accountNumber,
       accountName,
-      bankName,
+      bankName, 
       qrCodeUrl,
     };
   }
