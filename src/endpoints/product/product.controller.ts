@@ -64,7 +64,7 @@ export class ProductController {
   }
 
   // --- Admin: write operations --------------------------------------------
-  @Put(":id")
+  @Patch(":id")
   @Roles(Role.ADMIN)
   @ApiOperation({ summary: "Update a product / toggle visibility (admin)" })
   @ApiOkResponse({ type: ProductModel })
@@ -76,7 +76,7 @@ export class ProductController {
     return this.productService.update(id, dto);
   }
 
-  @Patch(":id")
+  @Delete(":id")
   @Roles(Role.ADMIN)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({

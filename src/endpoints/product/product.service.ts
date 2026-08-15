@@ -13,9 +13,7 @@ import { PrismaService } from "../../prisma/prisma.service";
 import { UserService } from "../user/user.service";
 import {
   CreateDlcDto,
-  CreateManyProductsDto,
   CreateProductDto,
-  DeleteManyProductsDto,
   DlcModel,
   PricingDto,
   PricingModel,
@@ -216,15 +214,13 @@ export class ProductService {
    * Soft-deletes a product: sets isDelete = true instead of removing it.
    * DLC rows are left intact.
    */
-  async softDelete(id: string): Promise<ProductModel> {
+  async softDelete(id: string): Promise<void> {
     await this.ensureExists(id);
 
-    const product = await this.prisma.product.update({
+    await this.prisma.product.update({
       where: { id },
       data: { isDelete: true },
-      include: PRODUCT_INCLUDE,
     });
-    return this.toModel(product);
   }
 
   /**

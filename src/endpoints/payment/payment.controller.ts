@@ -1,4 +1,11 @@
-import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Headers,
+  HttpCode,
+  HttpStatus,
+  Post,
+} from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOkResponse,
@@ -23,12 +30,21 @@ export class PaymentController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary:
-      'Receive SePay IPN webhook notification and update order/bill status (public webhook)',
+      'Receive SePay IPN webhook notification (application/json, type incoming) with HMAC-SHA256 verification',
   })
   @ApiOkResponse({ type: SepayWebhookResponseModel })
   sepayWebhook(
+    @Headers() headers: Record<string, string>,
     @Body() dto: SepayWebhookDto,
   ): Promise<SepayWebhookResponseModel> {
+    const signature =
+      headers['x-sepay-signature'] ||
+      headers['x-signature'] ||
+      headers['x-sepay-sha256'] ||
+      headers['x-sepay-hmac'] ||
+      headers['authorization'];
+
+    this.sepayService.verifyHmacSignature(dto, signature);
     return this.sepayService.processWebhook(dto);
   }
 }
