@@ -9,7 +9,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { Role, User } from '../../prisma/prisma-client';
+import { User } from '../../prisma/prisma-client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { JwtPayload } from '../../common/interfaces/authenticated-user.interface';
 import { generateOpaqueToken } from '../../common/utils/token.util';

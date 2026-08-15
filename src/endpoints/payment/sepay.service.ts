@@ -8,6 +8,7 @@ import {
   SepayWebhookResponseModel,
 } from '@app/shared';
 import { PaymentStatus } from '../../prisma/prisma-client';
+import { ConfigService } from '@nestjs/config';
 
 interface SepayTransactionItem {
   id: string | number;
@@ -32,7 +33,10 @@ export class SepayService {
   private readonly logger = new Logger(SepayService.name);
   private isPolling = false;
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly config: ConfigService,
+  ) {}
 
   /**
    * Verifies the incoming SePay IPN webhook notification signature using HMAC-SHA256
@@ -42,10 +46,7 @@ export class SepayService {
     payload: SepayWebhookDto,
     signatureHeader?: string,
   ): void {
-    const secret = SEPAY_CONFIG.webhookSecret;
-    if (!secret) {
-      return;
-    }
+    const secret = this.config.getOrThrow<string>(SEPAY_CONFIG.webhookSecret);
 
     if (!signatureHeader) {
       this.logger.warn('Missing SePay HMAC signature header');
@@ -152,10 +153,8 @@ export class SepayService {
       return;
     }
 
-    const { apiUrl, apiKey } = SEPAY_CONFIG;
-    if (!apiUrl || !apiKey) {
-      return;
-    }
+    const apiUrl = this.config.getOrThrow<string>(SEPAY_CONFIG.apiUrl);
+    const apiKey = this.config.getOrThrow<string>(SEPAY_CONFIG.apiKey);
 
     this.isPolling = true;
 
