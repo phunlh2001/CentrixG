@@ -14,7 +14,7 @@ datasource db {
 enum Role {
   ADMIN
   CUSTOMER
-  STREAMER
+  SELLER
   MOD
 }
 
@@ -137,10 +137,10 @@ model Category {
 
 /// Protection platforms and launcher integration types (e.g. EA, Ubisoft, Denuvo, Rockstar).
 model Type {
-  id          Int          @id @default(autoincrement())
-  name        String       @unique
-  description String?
-  createdAt   DateTime     @default(now())
+  id           Int          @id @default(autoincrement())
+  name         String       @unique
+  description  String?
+  createdAt    DateTime     @default(now())
 
   products     Product[]
   thirdParties ThirdParty[]
@@ -162,10 +162,10 @@ model ThirdParty {
 
 /// Customer, Streamer, or Admin account.
 model User {
-  id           String   @id @default(uuid())
-  username     String   @unique
-  email        String   @unique
-  passwordHash String
+  id               String   @id @default(uuid())
+  username         String   @unique
+  email            String   @unique
+  passwordHash     String
   role             Role      @default(CUSTOMER)
   isBlock          Boolean   @default(false) // Admin restriction flag upon violation
   isVerified       Boolean   @default(false) // Email verification status
@@ -173,6 +173,7 @@ model User {
   codeExpiresAt    DateTime? // Expiration timestamp (10 minutes after dispatch)
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
+  resonable        String?
 
   // Direct product purchases
   products Product[] @relation("UserProducts")
