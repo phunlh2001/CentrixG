@@ -42,4 +42,10 @@ export class QueryProductDto {
   @Min(1)
   @Max(100)
   pageSize?: number = 20;
+
+  @ApiPropertyOptional({ description: 'Has manifest' })
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true')
+  @IsBoolean()
+  hasManifest?: boolean = false;
 }

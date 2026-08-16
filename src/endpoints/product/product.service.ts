@@ -78,7 +78,9 @@ export class ProductService {
 
     const where: Prisma.ProductWhereInput = {
       ...(query.includeHidden ? {} : { isDelete: false }),
-      manifests: { some: {} },
+      ...(query.hasManifest 
+        ? { manifests: { some: {} } } 
+        : { manifests: { none: {} } }),
       ...(query.search
         ? {
             OR: [
