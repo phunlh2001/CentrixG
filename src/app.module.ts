@@ -23,6 +23,7 @@ import { OrdersModule } from './endpoints/orders/orders.module';
 import { PaymentModule } from './endpoints/payment/payment.module';
 import { OverviewModule } from './endpoints/admin/overview/overview.module';
 import { CategoryModule } from './endpoints/admin/category/category.module';
+import { BillModule } from './endpoints/admin/bill/bill.module';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { CategoryModule } from './endpoints/admin/category/category.module';
     PaymentModule,
     OverviewModule,
     CategoryModule,
+    BillModule,
   ],
   controllers: [AppController],
   providers: [
