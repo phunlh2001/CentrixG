@@ -22,9 +22,6 @@ export class ThirdPartyService {
       select: {
         fileUrl: true,
       },
-      orderBy: {
-        createdAt: 'desc',
-      },
     });
 
     if (!record) {
@@ -39,7 +36,7 @@ export class ThirdPartyService {
   /**
    * Fetches a list of third-party file URLs for Rockstar platform.
    */
-  async getRockstarFileUrls(): Promise<ThirdPartyFileUrlModel[]> {
+  async getRockstarFileUrl(appId: number): Promise<ThirdPartyFileUrlModel> {
     const records = await this.prisma.thirdParty.findMany({
       where: {
         type: {
@@ -47,18 +44,33 @@ export class ThirdPartyService {
             equals: 'Rockstar',
             mode: 'insensitive',
           },
-        },
+        }
       },
       select: {
         fileUrl: true,
       },
-      orderBy: {
-        createdAt: 'desc',
-      },
     });
 
-    return records.map((r) => ({
-      fileUrl: r.fileUrl,
-    }));
+    const record = records
+      .map((r) => {
+        const url = r.fileUrl;
+        const { pathname } = new URL(url);
+        const fileName = decodeURIComponent(pathname.split('/').pop() || '');
+        const gameId = parseInt(fileName.replace(/\.zip$/i, ''), 10);
+
+        return {
+          gameId,
+          url
+        }
+      })
+      .find((u) => u.gameId === appId);
+
+    if (!record) {
+      throw new NotFoundException(`Third-party file URL for Rockstar (App ID: ${appId}) was not found`);
+    }
+
+    return {
+      fileUrl: record.url,
+    }
   }
 }

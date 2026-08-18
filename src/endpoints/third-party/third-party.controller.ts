@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Param } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiNotFoundResponse,
@@ -27,7 +27,7 @@ export class ThirdPartyController {
     description: 'Ubisoft fileUrl object',
   })
   @ApiNotFoundResponse({
-    description: 'Third-party file URL for Ubisoft not found',
+    description: 'Third-party file URL for Ubisoft (App ID: ${appId}) not found',
   })
   getUbisoftFileUrl(): Promise<ThirdPartyFileUrlModel> {
     return this.thirdPartyService.getUbisoftFileUrl();
@@ -36,15 +36,18 @@ export class ThirdPartyController {
   /**
    * Get list of third-party fileUrls for Rockstar (private API)
    */
-  @Get('rockstar')
+  @Get('rockstar/:appId')
   @ApiOperation({
-    summary: 'Get list of third-party fileUrls for Rockstar (private API)',
+    summary: 'Get list of third-party fileUrl for Rockstar (private API)',
   })
   @ApiOkResponse({
-    type: [ThirdPartyFileUrlModel],
-    description: 'List of Rockstar fileUrl items',
+    type: ThirdPartyFileUrlModel,
+    description: 'Rockstar fileUrl item',
   })
-  getRockstarFileUrls(): Promise<ThirdPartyFileUrlModel[]> {
-    return this.thirdPartyService.getRockstarFileUrls();
+  @ApiNotFoundResponse({
+    description: 'Third-party file URL for Rockstar (App ID: ${appId}) not found',
+  })
+  getRockstarFileUrl(@Param('appId') appId: string): Promise<ThirdPartyFileUrlModel> {
+    return this.thirdPartyService.getRockstarFileUrl(Number(appId));
   }
 }
