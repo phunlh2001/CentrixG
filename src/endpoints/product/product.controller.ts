@@ -138,9 +138,6 @@ export class ProductController {
   @ApiOkResponse({ type: ProductModel })
   @ApiNotFoundResponse({ description: "Product not found or missing manifest" })
   findOne(@Param("id") id: string): Promise<ProductModel> {
-    if (/^\d+$/.test(id)) {
-      return this.productService.findByAppId(parseInt(id, 10));
-    }
     return this.productService.findOne(id);
   }
 

@@ -47,5 +47,5 @@ export class QueryProductDto {
   @IsOptional()
   @Transform(({ value }) => value === true || value === 'true')
   @IsBoolean()
-  hasManifest?: boolean = false;
+  hasManifest?: boolean = true;
 }
