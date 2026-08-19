@@ -16,11 +16,16 @@ async function bootstrap(): Promise<void> {
   app.use(express.urlencoded({ limit: '50mb', extended: true }))
 
   const config = app.get(ConfigService);
-  const mainSite = config.get<string>(CONFIG_ENV.mainSite, 'http://localhost:3000');
-  const adminSite = config.get<string>(CONFIG_ENV.adminSite, 'http://localhost:3001');
+  const mainSite = config.get<string>(CONFIG_ENV.mainSite, '');
+  const adminSite = config.get<string>(CONFIG_ENV.adminSite, '');
+
+  let enableCors: string[] | '*' = '*';
+  if (mainSite && adminSite) {
+    enableCors = [mainSite, adminSite];
+  }
 
   app.enableCors({
-    origin: [mainSite, adminSite],
+    origin: enableCors,
     methods: 'GET,PUT,PATCH,POST,DELETE',
     preflightContinue: false,
     optionsSuccessStatus: 204,
@@ -74,8 +79,7 @@ async function bootstrap(): Promise<void> {
 
   const port = config.get<number>(CONFIG_ENV.port, 3000);
   await app.listen(port);
-  logger.log(`Enable CORS for Main site: ${mainSite}`);
-  logger.log(`Enable CORS for Admin site: ${adminSite}`);
+  logger.log(`Enable CORS for: ${JSON.stringify(enableCors)}`);
   if (config.get<string>('NODE_ENV') !== 'production') {
     logger.log(`Application is running on: http://localhost:${port}/api`);
     logger.log(`Swagger docs available at http://localhost:${port}/docs`);
