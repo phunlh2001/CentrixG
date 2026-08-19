@@ -227,6 +227,29 @@ export class ProductService {
   }
 
   /**
+   * Hard-deletes a product: permanently removes DLCs, manifest files, prices, categories,
+   * and product record from database. Restricted to MOD role in controller.
+   */
+  async hardDelete(id: string): Promise<void> {
+    const product = await this.prisma.product.findUnique({
+      where: { id },
+      select: { id: true, appId: true },
+    });
+
+    if (!product) {
+      throw new NotFoundException(`Product ${id} not found`);
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.dLC.deleteMany({ where: { productId: id } });
+      await tx.manifestFile.deleteMany({ where: { appId: product.appId } });
+      await tx.productPrice.deleteMany({ where: { productId: id } });
+      await tx.category.deleteMany({ where: { productId: id } });
+      await tx.product.delete({ where: { id } });
+    });
+  }
+
+  /**
    * Records a purchase of multiple products for a user in a single atomic transaction.
    * If userId is not provided (unauthenticated purchase), resolves a guest customer account.
    * Connects all products to user's library, populates user_games rental entries for each product,

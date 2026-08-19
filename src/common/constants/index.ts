@@ -11,4 +11,6 @@ export const CONFIG_ENV = {
   supabasePublishableKey: 'SUPABASE_PUBLISHABLE_KEY',
   supabaseSecretKey: 'SUPABASE_SECRET_KEY',
   supabaseManifestBucket: 'SUPABASE_MANIFEST_BUCKET',
+  mainSite: 'MAIN_SITE',
+  adminSite: 'ADMIN_SITE',
 };

@@ -77,11 +77,11 @@ export class ProductController {
     return this.productService.update(id, dto);
   }
 
-  @Delete(":id")
-  @Roles(Role.ADMIN)
+  @Patch(":id/hide")
+  @Roles(Role.ADMIN, Role.MOD)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: "Soft-delete a product (admin). Sets invisible = true.",
+    summary: "Soft-delete / hide a product (admin & mod). Sets isDelete = true.",
   })
   @ApiOkResponse({ type: MessageResponseDto })
   @ApiNotFoundResponse({ description: "Product not found" })
@@ -90,6 +90,21 @@ export class ProductController {
   ): Promise<MessageResponseDto> {
     await this.productService.softDelete(id);
     return { message: `Product ${id} hidden` };
+  }
+
+  @Delete(":id")
+  @Roles(Role.MOD)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: "Hard-delete a product from database permanently (MOD role only).",
+  })
+  @ApiOkResponse({ type: MessageResponseDto })
+  @ApiNotFoundResponse({ description: "Product not found" })
+  async hardDelete(
+    @Param("id", ParseUUIDPipe) id: string,
+  ): Promise<MessageResponseDto> {
+    await this.productService.hardDelete(id);
+    return { message: `Product ${id} permanently deleted` };
   }
 
   // --- Admin: update type for product ----------------------------

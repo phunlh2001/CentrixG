@@ -11,7 +11,10 @@ export class AdminCategoryModel {
   description?: string | null;
 
   @ApiProperty({ example: 5, description: 'Number of products in this Type' })
-  productCount: number;
+  readyCount: number;
+
+  @ApiProperty({ example: 0, description: 'Number of pending products in this Type' })
+  pendingCount: number;
 
   @ApiProperty({ example: "2022-01-01T00:00:00.000Z", description: 'Timestamp of Type creation' })
   createdAt?: Date;

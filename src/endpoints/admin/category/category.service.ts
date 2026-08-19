@@ -5,7 +5,11 @@ import { Injectable } from '@nestjs/common';
 
 type TypeWithRelations = Prisma.TypeGetPayload<{
   include: {
-    products: true
+    products: {
+      include: {
+        manifests:  true
+      }
+    }
   }
 }>;
 
@@ -17,7 +21,11 @@ export class CategoryService {
     const type = await this.prisma.$transaction(async (tx) => {
       return tx.type.findMany({
         include: {
-          products: true
+          products: {
+            include: {
+              manifests: true
+            }
+          }
         }
       })
     });
@@ -31,7 +39,8 @@ export class CategoryService {
       id: type.id,
       name: type.name,
       description: type.description,
-      productCount: type.products.length,
+      readyCount: type.products.filter(p => p.manifests.length > 0).length,
+      pendingCount: type.products.filter(p => p.manifests.length === 0).length,
       createdAt: type.createdAt,
     };
   }

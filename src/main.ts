@@ -15,15 +15,18 @@ async function bootstrap(): Promise<void> {
   app.use(express.json({ limit: '50mb' }))
   app.use(express.urlencoded({ limit: '50mb', extended: true }))
 
+  const config = app.get(ConfigService);
+  const mainSite = config.get<string>(CONFIG_ENV.mainSite, 'http://localhost:3000');
+  const adminSite = config.get<string>(CONFIG_ENV.adminSite, 'http://localhost:3001');
+
   app.enableCors({
-    origin: '*',
+    origin: [mainSite, adminSite],
     methods: 'GET,PUT,PATCH,POST,DELETE',
     preflightContinue: false,
     optionsSuccessStatus: 204,
     credentials: true,
   });
 
-  const config = app.get(ConfigService);
   const logger = new Logger('Bootstrap');
 
   // Global validation: strip unknown props, reject extras, auto-transform.
@@ -71,8 +74,10 @@ async function bootstrap(): Promise<void> {
 
   const port = config.get<number>(CONFIG_ENV.port, 3000);
   await app.listen(port);
-  logger.log(`Application is running on: http://localhost:${port}/api`);
-  logger.log(`Swagger docs available at http://localhost:${port}/docs`);
+  if (config.get<string>('NODE_ENV') !== 'production') {
+    logger.log(`Application is running on: http://localhost:${port}/api`);
+    logger.log(`Swagger docs available at http://localhost:${port}/docs`);
+  }
 }
 
 // eslint-disable-next-line @typescript-eslint/no-floating-promises
