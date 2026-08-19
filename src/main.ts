@@ -74,6 +74,8 @@ async function bootstrap(): Promise<void> {
 
   const port = config.get<number>(CONFIG_ENV.port, 3000);
   await app.listen(port);
+  logger.log(`Enable CORS for Main site: ${mainSite}`);
+  logger.log(`Enable CORS for Admin site: ${adminSite}`);
   if (config.get<string>('NODE_ENV') !== 'production') {
     logger.log(`Application is running on: http://localhost:${port}/api`);
     logger.log(`Swagger docs available at http://localhost:${port}/docs`);
