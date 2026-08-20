@@ -9,7 +9,9 @@ import {
 import { Request, Response } from 'express';
 
 /**
- * Catch-all filter guaranteeing every error leaves the API in the exact same format:
+ * Catch-all exception filter ensuring all client & server errors are logged
+ * with detailed context (IP, method, URL, status, message, stack trace)
+ * and formatted into a uniform JSON response envelope:
  * { success: false, statusCode, data: null, message }
  */
 @Catch()
@@ -35,16 +37,34 @@ export class AllExceptionsFilter implements ExceptionFilter {
           ? body
           : ((body as { message?: string | string[] }).message ??
             exception.message);
+    } else if (exception instanceof Error) {
+      rawMessage = exception.message;
     }
 
     const message = Array.isArray(rawMessage)
       ? rawMessage.join('; ')
       : rawMessage;
 
+    const clientIp =
+      (request.headers['x-forwarded-for'] as string) ||
+      request.ip ||
+      request.socket.remoteAddress ||
+      'unknown';
+    const userAgent = request.headers['user-agent'] || 'none';
+    const logPrefix = `${request.method} ${request.url} | IP: ${clientIp} | UA: "${userAgent}"`;
+
     if (status >= HttpStatus.INTERNAL_SERVER_ERROR) {
+      // 5xx Server Errors -> Log as ERROR with full stack trace for tracking in production
+      const stack =
+        exception instanceof Error ? exception.stack : String(exception);
       this.logger.error(
-        `${request.method} ${request.url}`,
-        exception instanceof Error ? exception.stack : String(exception),
+        `[SERVER ERROR] ${status} | ${logPrefix} | Message: ${message}`,
+        stack,
+      );
+    } else {
+      // 4xx Client Errors -> Log as WARN to track client action failures
+      this.logger.warn(
+        `[CLIENT ERROR] ${status} | ${logPrefix} | Message: ${message}`,
       );
     }
 

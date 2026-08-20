@@ -6,13 +6,12 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Prisma } from '../../prisma/prisma-client';
-import { Response } from 'express';
+import { Request, Response } from 'express';
 
 /**
- * Translates known Prisma errors into meaningful HTTP responses in the exact format:
- * { success: false, statusCode, data: null, message }
- *
- * Reference: https://www.prisma.io/docs/orm/reference/error-reference
+ * Exception filter translating known Prisma database errors into HTTP responses
+ * and logging full request context for deployment deployment error tracking.
+ * Response format: { success: false, statusCode, data: null, message }
  */
 @Catch(Prisma.PrismaClientKnownRequestError)
 export class PrismaExceptionFilter implements ExceptionFilter {
@@ -24,6 +23,7 @@ export class PrismaExceptionFilter implements ExceptionFilter {
   ): void {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
+    const request = ctx.getRequest<Request>();
 
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
     let message = 'Internal server error';
@@ -54,10 +54,23 @@ export class PrismaExceptionFilter implements ExceptionFilter {
         break;
       }
       default: {
-        this.logger.error(
-          `Unhandled Prisma error ${exception.code}: ${exception.message}`,
-        );
+        message = `Database request error (${exception.code})`;
+        break;
       }
+    }
+
+    const clientIp =
+      (request.headers['x-forwarded-for'] as string) ||
+      request.ip ||
+      request.socket.remoteAddress ||
+      'unknown';
+
+    const logMessage = `[PRISMA ERROR] Code: ${exception.code} (${status}) | ${request.method} ${request.url} | IP: ${clientIp} | Message: ${message}`;
+
+    if (status >= HttpStatus.INTERNAL_SERVER_ERROR) {
+      this.logger.error(logMessage, exception.stack);
+    } else {
+      this.logger.warn(logMessage);
     }
 
     response.status(status).json({
