@@ -11,13 +11,6 @@ export class OrderStatusResponseModel {
   @ApiProperty({ enum: PaymentStatus, example: PaymentStatus.PENDING })
   status: PaymentStatus;
 
-  @ApiProperty({
-    enum: PaymentStatus,
-    nullable: true,
-    example: PaymentStatus.PENDING,
-  })
-  billStatus: PaymentStatus | null;
-
   @ApiProperty()
   createdAt: Date;
 }

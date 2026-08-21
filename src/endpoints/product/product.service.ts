@@ -346,19 +346,18 @@ export class ProductService {
         billCurrency = itemCurrency;
       }
 
-      // 5. Create single consolidated Bill for the order
-      const transactionRef = `BILL-BULK-${Date.now()}-${Math.random()
+      // 5. Create single consolidated Order for the purchase
+      const orderCode = `ORD-BULK-${Date.now()}-${Math.random()
         .toString(36)
         .substring(2, 8)
         .toUpperCase()}`;
 
-      await tx.bill.create({
+      await tx.order.create({
         data: {
           userId: targetUserId,
+          orderCode,
           amount: totalAmount,
           currency: billCurrency,
-          paymentMethod: "SYSTEM",
-          transactionRef,
           status: PaymentStatus.COMPLETED,
         },
       });

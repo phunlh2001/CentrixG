@@ -5,7 +5,7 @@ import { Roles } from '@app/common/decorators/roles.decorator';
 import { Role } from '@app/prisma/prisma-client';
 import { AdminCategoryModel } from '@app/shared';
 
-@ApiTags("Admin Category")
+@ApiTags("Admin")
 @ApiBearerAuth("access-token")
 @Roles(Role.ADMIN, Role.MOD)
 @Controller('admin/category')

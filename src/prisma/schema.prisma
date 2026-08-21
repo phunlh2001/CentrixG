@@ -184,9 +184,6 @@ model User {
   // Login event audit log for weekly IP rate limiting
   loginLogs LoginLog[]
 
-  // Payment transactions ledger
-  bills Bill[]
-
   // Customer orders
   orders Order[]
 
@@ -223,35 +220,16 @@ model LoginLog {
   @@map("login_logs")
 }
 
-/// Payment and billing history for author / admin accounting.
-model Bill {
-  id             String        @id @default(uuid())
-  userId         String
-  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  amount         Decimal       @default(0) @db.Decimal(18, 4)
-  currency       Currency      @default(VND)
-  paymentMethod  String        @default("SYSTEM")
-  transactionRef String?       @unique
-  status         PaymentStatus @default(PENDING)
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-
-  order Order?
-
-  @@index([userId])
-  @@map("bills")
-}
-
-/// Customer orders for SePay payment processing.
+/// Customer orders and payment transaction ledger for SePay payment processing.
 model Order {
   id        String        @id @default(uuid())
   orderCode String        @unique
   amount    Decimal       @db.Decimal(18, 4)
+  currency  Currency      @default(VND)
   status    PaymentStatus @default(PENDING)
+  expired   Int           @default(900) // Expiration duration in seconds (default: 900s / 15 minutes)
   userId    String?
-  user      User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
-  billId    String?       @unique
-  bill      Bill?         @relation(fields: [billId], references: [id], onDelete: SetNull)
+  user      User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
 

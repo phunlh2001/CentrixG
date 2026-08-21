@@ -24,7 +24,7 @@ export class OrdersController {
   @Post()
   @ApiOperation({
     summary:
-      'Generate orderCode and banking QR code info for SePay payment (requires Bearer token)',
+      'Generate or reuse active order and banking QR code info for SePay payment',
   })
   @ApiCreatedResponse({ type: CreateOrderResponseModel })
   createOrder(
@@ -34,10 +34,21 @@ export class OrdersController {
     return this.ordersService.createOrder(dto, userId);
   }
 
-  @Get(':orderCode')
+  @Get('latest')
   @ApiOperation({
     summary:
-      'Check order and bill status by orderCode for polling (requires Bearer token)',
+      'Get latest active pending order for current user with remaining expiration time in seconds',
+  })
+  @ApiOkResponse({ type: CreateOrderResponseModel })
+  getLatestOrder(
+    @CurrentUser('id') userId?: string,
+  ): Promise<CreateOrderResponseModel | null> {
+    return this.ordersService.getLatestOrder(userId);
+  }
+
+  @Get(':orderCode')
+  @ApiOperation({
+    summary: 'Check order status by orderCode for polling',
   })
   @ApiOkResponse({ type: OrderStatusResponseModel })
   @ApiNotFoundResponse({ description: 'Order not found' })

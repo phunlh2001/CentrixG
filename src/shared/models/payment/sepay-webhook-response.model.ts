@@ -6,7 +6,7 @@ export class SepayWebhookResponseModel {
   orderCode: string | null;
 
   @ApiProperty({ enum: PaymentStatus, example: PaymentStatus.COMPLETED })
-  billStatus: PaymentStatus;
+  orderStatus: PaymentStatus;
 
   @ApiProperty({ example: 'Payment processed successfully' })
   message: string;

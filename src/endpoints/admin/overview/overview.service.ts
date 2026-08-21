@@ -31,7 +31,7 @@ export class OverviewService {
     const dateRangeText = isWeekly ? 'Last 7 Days' : 'Current Month';
 
     // 1. Total Revenue Aggregation
-    const completedBills = await this.prisma.bill.findMany({
+    const completedOrders = await this.prisma.order.findMany({
       where: {
         status: PaymentStatus.COMPLETED,
         createdAt: { gte: startDate },
@@ -39,8 +39,8 @@ export class OverviewService {
       select: { amount: true },
     });
 
-    const totalRevenueVnd = completedBills.reduce(
-      (sum, bill) => sum + Number(bill.amount),
+    const totalRevenueVnd = completedOrders.reduce(
+      (sum, order) => sum + Number(order.amount),
       0,
     );
 

@@ -5,7 +5,7 @@ import { Role } from '@app/prisma/prisma-client';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { AdminOverviewQueryDto, AdminOverviewResponseModel } from '@app/shared';
 
-@ApiTags('Admin Overview')
+@ApiTags('Admin')
 @ApiBearerAuth('access-token')
 @Roles(Role.ADMIN, Role.MOD)
 @Controller('admin/overview')

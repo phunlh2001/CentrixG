@@ -21,4 +21,10 @@ export class CreateOrderResponseModel {
       'https://img.vietqr.io/image/Vietcombank-0111000373824-compact.png?amount=100000&addInfo=CG592489&accountName=LE%20THANH%20TUNG',
   })
   qrCodeUrl: string;
+
+  @ApiProperty({
+    example: 900,
+    description: 'Remaining expiration time left in seconds',
+  })
+  expired: number;
 }

@@ -39,7 +39,7 @@ export class SepayService {
 
   /**
    * Processes SePay IPN webhook notification, extracts orderCode,
-   * updates Order & Bill payment status, and returns the resulting status.
+   * updates Order payment status directly, and returns the resulting status.
    */
   async processWebhook(
     dto: SepayWebhookDto,
@@ -57,7 +57,7 @@ export class SepayService {
       );
       return {
         orderCode: null,
-        billStatus: PaymentStatus.PENDING,
+        orderStatus: PaymentStatus.PENDING,
         message: 'Webhook received, but no order code found in transaction content',
       };
     }
@@ -65,14 +65,13 @@ export class SepayService {
     // Look up Order in database
     const order = await this.prisma.order.findUnique({
       where: { orderCode: extractedOrderCode },
-      include: { bill: true },
     });
 
     if (!order) {
       this.logger.warn(`Order with code "${extractedOrderCode}" not found in database`);
       return {
         orderCode: extractedOrderCode,
-        billStatus: PaymentStatus.PENDING,
+        orderStatus: PaymentStatus.PENDING,
         message: `Webhook received, but order ${extractedOrderCode} was not found`,
       };
     }
@@ -82,18 +81,18 @@ export class SepayService {
       dto.transferType === 'in' &&
       Number(dto.transferAmount) >= Number(order.amount)
     ) {
-      await this.markOrderAsCompleted(order.id, order.billId, order.orderCode);
+      await this.markOrderAsCompleted(order.id, order.orderCode);
 
       return {
         orderCode: order.orderCode,
-        billStatus: PaymentStatus.COMPLETED,
+        orderStatus: PaymentStatus.COMPLETED,
         message: `Payment completed successfully for order ${order.orderCode}`,
       };
     }
 
     return {
       orderCode: order.orderCode,
-      billStatus: order.status,
+      orderStatus: order.status,
       message: `Webhook processed. Inbound amount (${dto.transferAmount}) did not satisfy order amount (${order.amount})`,
     };
   }
@@ -117,7 +116,7 @@ export class SepayService {
       // 1. Fetch pending orders from DB
       const pendingOrders = await this.prisma.order.findMany({
         where: { status: PaymentStatus.PENDING },
-        select: { id: true, orderCode: true, amount: true, billId: true },
+        select: { id: true, orderCode: true, amount: true },
       });
 
       if (pendingOrders.length === 0) {
@@ -163,7 +162,6 @@ export class SepayService {
         if (matchingTx) {
           await this.markOrderAsCompleted(
             order.id,
-            order.billId,
             order.orderCode,
           );
         }
@@ -177,21 +175,11 @@ export class SepayService {
 
   private async markOrderAsCompleted(
     orderId: string,
-    billId: string | null,
     orderCode: string,
   ): Promise<void> {
-    await this.prisma.$transaction(async (tx) => {
-      await tx.order.update({
-        where: { id: orderId },
-        data: { status: PaymentStatus.COMPLETED },
-      });
-
-      if (billId) {
-        await tx.bill.update({
-          where: { id: billId },
-          data: { status: PaymentStatus.COMPLETED },
-        });
-      }
+    await this.prisma.order.update({
+      where: { id: orderId },
+      data: { status: PaymentStatus.COMPLETED },
     });
 
     this.logger.log(`Successfully completed order ${orderCode}`);
