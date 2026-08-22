@@ -7,11 +7,9 @@ import {
 } from "@nestjs/common";
 import {
   Currency,
-  PaymentStatus,
   Prisma,
 } from "../../prisma/prisma-client";
 import { PrismaService } from "../../prisma/prisma.service";
-import { UserService } from "../user/user.service";
 import {
   CreateDlcDto,
   CreateProductDto,
@@ -47,10 +45,7 @@ type ProductWithRelations = Prisma.ProductGetPayload<{
 
 @Injectable()
 export class ProductService {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly userService: UserService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   /**
    * Creates a single product together with its full pricing (all currencies,
@@ -85,10 +80,13 @@ export class ProductService {
       ...(query.search
         ? {
             OR: [
-              { name: { contains: query.search, mode: "insensitive" } },
+              { name: { contains: query.search } },
+              { description: { contains: query.search } },
+              { developer: { contains: query.search } },
+              { publisher: { contains: query.search } },
               {
                 categories: {
-                  some: { name: { contains: query.search, mode: "insensitive" } },
+                  some: { name: { contains: query.search } },
                 },
               },
             ],
@@ -156,12 +154,9 @@ export class ProductService {
    * Fetches one product by Steam AppID (including DLCs, pricing, categories, and manifest if available).
    * Hidden products are returned only when `includeHidden` is true (admin path).
    */
-  async findByAppId(appId: number, includeHidden = false): Promise<ProductModel> {
+  async findByAppId(appId: number): Promise<ProductModel> {
     const product = await this.prisma.product.findFirst({
-      where: {
-        appId,
-        ...(includeHidden ? {} : { isDelete: false }),
-      },
+      where: { appId },
       include: PRODUCT_INCLUDE,
     });
 
@@ -342,22 +337,6 @@ export class ProductService {
         totalAmount = totalAmount.add(itemPrice);
         billCurrency = itemCurrency;
       }
-
-      // 5. Create single consolidated Order for the purchase
-      const orderCode = `ORD-BULK-${Date.now()}-${Math.random()
-        .toString(36)
-        .substring(2, 8)
-        .toUpperCase()}`;
-
-      await tx.order.create({
-        data: {
-          userId: targetUserId,
-          orderCode,
-          amount: totalAmount,
-          currency: billCurrency,
-          status: PaymentStatus.COMPLETED,
-        },
-      });
 
       return products;
     });

@@ -14,8 +14,19 @@ import {
  * for admins (enforced in the controller/service).
  */
 export class QueryProductDto {
-  @ApiPropertyOptional({ description: 'Case-insensitive name search' })
+  @ApiPropertyOptional({
+    description:
+      'Multi-language / UTF-8 / Hanzi case-insensitive search (name, description, developer, publisher, appId, category)',
+  })
   @IsOptional()
+  @Transform(({ value }) => {
+    if (typeof value !== 'string') return value;
+    try {
+      return decodeURIComponent(value).trim();
+    } catch {
+      return value.trim();
+    }
+  })
   @IsString()
   search?: string;
 
