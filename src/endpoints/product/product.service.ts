@@ -3,6 +3,7 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  UnauthorizedException,
 } from "@nestjs/common";
 import {
   Currency,
@@ -257,22 +258,18 @@ export class ProductService {
    */
   async purchase(
     dto: PurchaseManyProductsDto,
-    userId?: string,
+    userId: string,
   ): Promise<ProductModel[]> {
+    if (!userId) {
+      throw new UnauthorizedException("User must be logged in to purchase products");
+    }
+
     if (!dto.productIds || dto.productIds.length === 0) {
       throw new BadRequestException("Product IDs list cannot be empty");
     }
 
     const uniqueProductIds = Array.from(new Set(dto.productIds));
-
-    // Resolve buyer UUID (user account or default guest account)
-    let buyerId = userId;
-    if (!buyerId) {
-      const guestUser = await this.userService.findOrCreateGuestUser();
-      buyerId = guestUser.id;
-    }
-
-    const targetUserId = buyerId;
+    const targetUserId = userId;
 
     const purchasedProducts = await this.prisma.$transaction(async (tx) => {
       // 1. Fetch all requested products with pricing

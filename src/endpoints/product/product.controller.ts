@@ -66,7 +66,7 @@ export class ProductController {
 
   // --- Admin: write operations --------------------------------------------
   @Patch(":id")
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.MOD)
   @ApiOperation({ summary: "Update a product / toggle visibility (admin)" })
   @ApiOkResponse({ type: ProductModel })
   @ApiNotFoundResponse({ description: "Product not found" })
@@ -109,7 +109,7 @@ export class ProductController {
 
   // --- Admin: update type for product ----------------------------
   @Patch(':id/type')
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.MOD)
   @ApiOperation({ summary: 'Update the type / category of a product (admin only)' })
   @ApiOkResponse({ type: MessageResponseDto })
   @ApiNotFoundResponse({ description: 'Product not found' })
@@ -157,18 +157,19 @@ export class ProductController {
   }
 
   @Post("purchase")
-  @Public()
+  @Roles(Role.CUSTOMER, Role.SELLER)
   @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth("access-token")
   @ApiOperation({
     summary:
-      "Purchase products (one or many) in a single transaction (authorization optional)",
+      "Purchase products (one or many) in a single transaction (requires Customer or Seller account)",
   })
   @ApiOkResponse({ type: [ProductModel] })
   @ApiNotFoundResponse({ description: "One or more products not available" })
   @ApiConflictResponse({ description: "One or more products already owned" })
   purchase(
     @Body() dto: PurchaseManyProductsDto,
-    @CurrentUser("id") userId?: string,
+    @CurrentUser("id") userId: string,
   ): Promise<ProductModel[]> {
     return this.productService.purchase(dto, userId);
   }
