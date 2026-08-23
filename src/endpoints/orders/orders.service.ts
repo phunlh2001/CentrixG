@@ -39,14 +39,14 @@ export class OrdersService {
       );
     }
 
-    if (!dto.productId) {
-      throw new BadRequestException('Product ID is required for order');
-    }
+    // if (!dto.productId) {
+    //   throw new BadRequestException('Product ID is required for order');
+    // }
 
     // 1. Verify target product exists and is not soft-deleted
     const product = await this.prisma.product.findFirst({
       where: {
-        id: dto.productId,
+        // id: dto.productId,
         isDelete: false,
       },
       select: { id: true, name: true },
@@ -113,7 +113,7 @@ export class OrdersService {
         status: PaymentStatus.PENDING,
         expired: DEFAULT_EXPIRED_SECONDS,
         userId,
-        productId: dto.productId,
+        productId: dto.productId ?? '',
       },
     });
 
