@@ -72,30 +72,43 @@ export class ProductService {
     const limit = query.pageSize ?? 20;
     const skip = (page - 1) * limit;
 
+    const priceCondition: Prisma.ProductWhereInput = query.includeHidden
+      ? {
+          OR: [
+            { prices: { some: { currency: Currency.VND, amount: { gt: 0 } } } },
+            { prices: { some: { currency: Currency.USD, amount: { gt: 0 } } } },
+            { prices: { some: { currency: Currency.CNY, amount: { gt: 0 } } } },
+          ],
+        }
+      : {
+          AND: [
+            { prices: { some: { currency: Currency.VND, amount: { gt: 0 } } } },
+            { prices: { some: { currency: Currency.USD, amount: { gt: 0 } } } },
+            { prices: { some: { currency: Currency.CNY, amount: { gt: 0 } } } },
+          ],
+        };
+
     const where: Prisma.ProductWhereInput = {
       ...(query.includeHidden ? {} : { isDelete: false }),
-      ...(query.hasManifest 
-        ? { manifests: { some: {} } } 
-        : { manifests: { none: {} } }),
+      ...(query.hasManifest !== undefined
+        ? query.hasManifest
+          ? { manifests: { some: {} } }
+          : { manifests: { none: {} } }
+        : {}),
       ...(query.search
         ? {
             OR: [
-              { name: { contains: query.search } },
-              { description: { contains: query.search } },
-              { developer: { contains: query.search } },
-              { publisher: { contains: query.search } },
+              { name: { contains: query.search, mode: "insensitive" } },
               {
                 categories: {
-                  some: { name: { contains: query.search } },
+                  some: { name: { contains: query.search, mode: "insensitive" } },
                 },
               },
             ],
           }
         : {}),
       AND: [
-        { prices: { some: { currency: Currency.VND, amount: { gt: 0 } } } },
-        { prices: { some: { currency: Currency.USD, amount: { gt: 0 } } } },
-        { prices: { some: { currency: Currency.CNY, amount: { gt: 0 } } } },
+        priceCondition,
         ...(userId
           ? [
               {
