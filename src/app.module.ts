@@ -16,7 +16,6 @@ import { TerminusModule } from '@nestjs/terminus';
 import { ScheduleModule } from '@nestjs/schedule';
 import { MailModule } from './services/mail/mail.module';
 import { ManifestModule } from './endpoints/manifest/manifest.module';
-import { UserModule } from './endpoints/user/user.module';
 import { TokenModule } from './services/token/token.module';
 import { ThirdPartyModule } from './endpoints/third-party/third-party.module';
 import { OrdersModule } from './endpoints/orders/orders.module';
@@ -24,6 +23,7 @@ import { PaymentModule } from './endpoints/payment/payment.module';
 import { OverviewModule } from './endpoints/admin/overview/overview.module';
 import { CategoryModule } from './endpoints/admin/category/category.module';
 import { BillModule } from './endpoints/admin/bill/bill.module';
+import { UserModule } from './endpoints/admin/user/user.module';
 
 @Module({
   imports: [

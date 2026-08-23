@@ -96,10 +96,7 @@ export class BillService {
       // 4. REFERRER INFO (null if no referrer tracking)
       const referrerInfo: BillReferrerInfoModel | null = null;
 
-      // 5. PAYMENT METHOD
-      const paymentMethod = 'SePay';
-
-      // 6. PAYMENT AMOUNT (VND / USD / CNY)
+      // 5. PAYMENT AMOUNT (VND / USD / CNY)
       const vndAmount = Number(order.amount);
       const usdAmount = Math.round((vndAmount / 25400) * 100) / 100;
       const cnyAmount = Math.round((vndAmount / 3550) * 100) / 100;
@@ -110,13 +107,12 @@ export class BillService {
         cny: cnyAmount,
       };
 
-      // 7. DATE & TIME
       return {
         id: billId,
         productInfo,
         userAccount,
         referrerInfo,
-        paymentMethod,
+        orderStatus: order.status,
         paymentAmount,
         createdAt: order.createdAt,
       };

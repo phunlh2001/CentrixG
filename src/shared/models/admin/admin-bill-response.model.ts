@@ -71,10 +71,10 @@ export class AdminBillItemModel {
   referrerInfo: BillReferrerInfoModel | null;
 
   @ApiPropertyOptional({
-    example: 'SePay',
-    description: 'PAYMENT METHOD',
+    example: 'PENDING',
+    description: 'ORDER STATUS',
   })
-  paymentMethod?: string;
+  orderStatus: string;
 
   @ApiProperty({
     type: BillPaymentAmountModel,
