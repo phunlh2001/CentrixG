@@ -113,7 +113,7 @@ export class OrdersService {
         status: PaymentStatus.PENDING,
         expired: DEFAULT_EXPIRED_SECONDS,
         userId,
-        productId: dto.productId ?? '',
+        productId: dto.productId ?? '54dafd70-4619-4ac4-b788-17de0ae10add',
       },
     });
 
