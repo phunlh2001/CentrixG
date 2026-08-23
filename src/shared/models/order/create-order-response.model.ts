@@ -27,4 +27,10 @@ export class CreateOrderResponseModel {
     description: 'Remaining expiration time left in seconds',
   })
   expired: number;
+
+  @ApiProperty({
+    example: 'aef481a7-97d9-4f65-a829-e10288d09d88',
+    description: 'Linked product ID for this order',
+  })
+  productId: string;
 }

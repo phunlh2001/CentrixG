@@ -38,6 +38,11 @@ export class BillService {
                 email: { contains: search, mode: 'insensitive' },
               },
             },
+            {
+              product: {
+                name: { contains: search, mode: 'insensitive' },
+              },
+            },
           ],
         }
       : {};
@@ -50,15 +55,18 @@ export class BillService {
         orderBy: { createdAt: 'desc' },
         include: {
           user: {
-            include: {
-              products: {
-                select: {
-                  id: true,
-                  appId: true,
-                  name: true,
-                  imageUrl: true,
-                },
-              },
+            select: {
+              id: true,
+              username: true,
+              email: true,
+            },
+          },
+          product: {
+            select: {
+              id: true,
+              appId: true,
+              name: true,
+              imageUrl: true,
             },
           },
         },
@@ -70,33 +78,28 @@ export class BillService {
       // 1. BILL / ORDER ID
       const billId = order.orderCode || order.id;
 
-      // 2. PRODUCT INFO
-      const productInfo: BillProductInfoModel[] = order.user?.products
-        ? order.user.products.map((p) => ({
-            id: p.id,
-            appId: p.appId,
-            name: p.name,
-            imageUrl: p.imageUrl,
-          }))
-        : [];
+      // 2. PRODUCT INFO (Strictly 1 Product per Order)
+      const productInfo: BillProductInfoModel = {
+        id: order.product.id,
+        appId: order.product.appId,
+        name: order.product.name,
+        imageUrl: order.product.imageUrl,
+      };
 
-      // 3. USER ACCOUNT
-      const userAccount: BillUserInfoModel = order.user
-        ? {
-            id: order.user.id,
-            username: order.user.username,
-            email: order.user.email,
-          }
-        : {
-            id: 'guest',
-            username: 'Guest Account',
-            email: 'guest@centrix.dev',
-          };
+      // 3. USER ACCOUNT (Strictly 1 User per Order)
+      const userAccount: BillUserInfoModel = {
+        id: order.user.id,
+        username: order.user.username,
+        email: order.user.email,
+      };
 
       // 4. REFERRER INFO (null if no referrer tracking)
       const referrerInfo: BillReferrerInfoModel | null = null;
 
-      // 5. PAYMENT AMOUNT (VND / USD / CNY)
+      // 5. PAYMENT METHOD
+      const paymentMethod = 'SePay';
+
+      // 6. PAYMENT AMOUNT (VND / USD / CNY)
       const vndAmount = Number(order.amount);
       const usdAmount = Math.round((vndAmount / 25400) * 100) / 100;
       const cnyAmount = Math.round((vndAmount / 3550) * 100) / 100;
@@ -107,12 +110,13 @@ export class BillService {
         cny: cnyAmount,
       };
 
-      // 6. DATE & TIME
+      // 7. DATE & TIME
       return {
         id: billId,
         productInfo,
         userAccount,
         referrerInfo,
+        paymentMethod,
         paymentAmount,
         createdAt: order.createdAt,
       };

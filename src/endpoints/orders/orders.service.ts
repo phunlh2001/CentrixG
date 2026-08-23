@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { SEPAY_CONFIG } from '../../common/constants/sepay.constants';
 import {
@@ -20,60 +25,84 @@ export class OrdersService {
 
   /**
    * Generates or reuses a pending order for SePay payment.
-   * Enforces 1 active pending order per user:
-   * - If an unexpired pending order with exact same amount exists, reuses it with remaining time left.
-   * - If order details changed or order expired, hard-deletes the old order and creates a new one with 900s expiration.
+   * Strictly enforces 1 Product and 1 User per Order:
+   * - If an unexpired pending order for the same user, same product, and exact same amount exists, reuses it with remaining time left.
+   * - If order details changed (different product / amount) or order expired, hard-deletes the old order and creates a new one with 900s expiration.
    */
   async createOrder(
     dto: CreateOrderDto,
-    userId?: string,
+    userId: string,
   ): Promise<CreateOrderResponseModel> {
-    const targetUserId = userId ?? null;
+    if (!userId) {
+      throw new UnauthorizedException(
+        'User must be logged in to create an order',
+      );
+    }
+
+    if (!dto.productId) {
+      throw new BadRequestException('Product ID is required for order');
+    }
+
+    // 1. Verify target product exists and is not soft-deleted
+    const product = await this.prisma.product.findFirst({
+      where: {
+        id: dto.productId,
+        isDelete: false,
+      },
+      select: { id: true, name: true },
+    });
+
+    if (!product) {
+      throw new NotFoundException(
+        `Product with ID ${dto.productId} not found or unavailable`,
+      );
+    }
+
     const now = new Date();
 
-    // 1. Check if user already has an active pending order
-    if (targetUserId) {
-      const existingOrder = await this.prisma.order.findFirst({
-        where: {
-          userId: targetUserId,
-          status: PaymentStatus.PENDING,
-        },
-        orderBy: { createdAt: 'desc' },
-      });
+    // 2. Check if user already has an active pending order
+    const existingOrder = await this.prisma.order.findFirst({
+      where: {
+        userId,
+        status: PaymentStatus.PENDING,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
 
-      if (existingOrder) {
-        const elapsedSeconds = Math.floor(
-          (now.getTime() - existingOrder.createdAt.getTime()) / 1000,
-        );
-        const remainingSeconds = existingOrder.expired - elapsedSeconds;
+    if (existingOrder) {
+      const elapsedSeconds = Math.floor(
+        (now.getTime() - existingOrder.createdAt.getTime()) / 1000,
+      );
+      const remainingSeconds = existingOrder.expired - elapsedSeconds;
 
-        if (remainingSeconds > 0) {
-          const isSameAmount =
-            Number(existingOrder.amount) === Number(dto.amount);
+      if (remainingSeconds > 0) {
+        const isSameAmount =
+          Number(existingOrder.amount) === Number(dto.amount);
+        const isSameProduct = existingOrder.productId === dto.productId;
 
-          if (isSameAmount) {
-            // Re-use existing unexpired matching order
-            return this.buildCreateOrderResponse(
-              existingOrder.orderCode,
-              Number(existingOrder.amount),
-              remainingSeconds,
-            );
-          } else {
-            // Details changed -> hard-delete old order and proceed to create new one
-            await this.prisma.order.delete({
-              where: { id: existingOrder.id },
-            });
-          }
+        if (isSameAmount && isSameProduct) {
+          // Re-use existing unexpired matching order
+          return this.buildCreateOrderResponse(
+            existingOrder.orderCode,
+            Number(existingOrder.amount),
+            remainingSeconds,
+            existingOrder.productId,
+          );
         } else {
-          // Expired -> hard-delete old order
+          // Details changed -> hard-delete old order and proceed to create new one
           await this.prisma.order.delete({
             where: { id: existingOrder.id },
           });
         }
+      } else {
+        // Expired -> hard-delete old order
+        await this.prisma.order.delete({
+          where: { id: existingOrder.id },
+        });
       }
     }
 
-    // 2. Create new order with default 900s expiration
+    // 3. Create new order with default 900s expiration
     const orderCode = await this.generateUniqueOrderCode();
 
     const order = await this.prisma.order.create({
@@ -83,7 +112,8 @@ export class OrdersService {
         currency: Currency.VND,
         status: PaymentStatus.PENDING,
         expired: DEFAULT_EXPIRED_SECONDS,
-        userId: targetUserId,
+        userId,
+        productId: dto.productId,
       },
     });
 
@@ -91,6 +121,7 @@ export class OrdersService {
       order.orderCode,
       Number(order.amount),
       DEFAULT_EXPIRED_SECONDS,
+      order.productId,
     );
   }
 
@@ -98,10 +129,12 @@ export class OrdersService {
    * Fetches latest active pending order for current user and calculates remaining time left.
    */
   async getLatestOrder(
-    userId?: string,
+    userId: string,
   ): Promise<CreateOrderResponseModel | null> {
     if (!userId) {
-      return null;
+      throw new UnauthorizedException(
+        'User must be logged in to view latest order',
+      );
     }
 
     const existingOrder = await this.prisma.order.findFirst({
@@ -134,6 +167,7 @@ export class OrdersService {
       existingOrder.orderCode,
       Number(existingOrder.amount),
       remainingSeconds,
+      existingOrder.productId,
     );
   }
 
@@ -161,6 +195,7 @@ export class OrdersService {
     orderCode: string,
     amount: number,
     expiredSeconds: number,
+    productId: string,
   ): CreateOrderResponseModel {
     const accountNumber = this.config.getOrThrow<string>(
       SEPAY_CONFIG.accountNumber,
@@ -180,6 +215,7 @@ export class OrdersService {
       bankName,
       qrCodeUrl,
       expired: expiredSeconds,
+      productId,
     };
   }
 

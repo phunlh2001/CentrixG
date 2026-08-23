@@ -6,6 +6,7 @@ import {
   ApiOkResponse,
   ApiOperation,
   ApiTags,
+  ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import {
@@ -24,12 +25,13 @@ export class OrdersController {
   @Post()
   @ApiOperation({
     summary:
-      'Generate or reuse active order and banking QR code info for SePay payment',
+      'Generate or reuse active order and banking QR code info for SePay payment (requires authentication)',
   })
   @ApiCreatedResponse({ type: CreateOrderResponseModel })
+  @ApiUnauthorizedResponse({ description: 'Unauthorized or missing Bearer token' })
   createOrder(
     @Body() dto: CreateOrderDto,
-    @CurrentUser('id') userId?: string,
+    @CurrentUser('id') userId: string,
   ): Promise<CreateOrderResponseModel> {
     return this.ordersService.createOrder(dto, userId);
   }
@@ -37,11 +39,12 @@ export class OrdersController {
   @Get('latest')
   @ApiOperation({
     summary:
-      'Get latest active pending order for current user with remaining expiration time in seconds',
+      'Get latest active pending order for current user with remaining expiration time in seconds (requires authentication)',
   })
   @ApiOkResponse({ type: CreateOrderResponseModel })
+  @ApiUnauthorizedResponse({ description: 'Unauthorized or missing Bearer token' })
   getLatestOrder(
-    @CurrentUser('id') userId?: string,
+    @CurrentUser('id') userId: string,
   ): Promise<CreateOrderResponseModel | null> {
     return this.ordersService.getLatestOrder(userId);
   }

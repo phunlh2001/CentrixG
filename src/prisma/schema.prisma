@@ -72,6 +72,9 @@ model Product {
   typeId Int?
   type   Type? @relation(fields: [typeId], references: [id], onDelete: SetNull)
 
+  // Orders associated with this product (1 Product : N Orders).
+  orders Order[]
+
   @@index([typeId])
   @@index([disabled])
   @@index([isDelete])
@@ -228,12 +231,15 @@ model Order {
   currency  Currency      @default(VND)
   status    PaymentStatus @default(PENDING)
   expired   Int           @default(900) // Expiration duration in seconds (default: 900s / 15 minutes)
-  userId    String?
-  user      User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
 
   @@index([orderCode])
   @@index([userId])
+  @@index([productId])
   @@map("orders")
 }

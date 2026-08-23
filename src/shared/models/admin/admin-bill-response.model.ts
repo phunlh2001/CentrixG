@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class BillProductInfoModel {
   @ApiProperty({ example: '9c1f...uuid' })
@@ -51,11 +51,14 @@ export class BillPaymentAmountModel {
 }
 
 export class AdminBillItemModel {
-  @ApiProperty({ example: '9c1f...uuid', description: 'BILL ID' })
+  @ApiProperty({ example: 'CG592489', description: 'BILL ID' })
   id: string;
 
-  @ApiProperty({ type: [BillProductInfoModel], description: 'PRODUCT INFO' })
-  productInfo: BillProductInfoModel[];
+  @ApiProperty({
+    type: BillProductInfoModel,
+    description: 'PRODUCT INFO',
+  })
+  productInfo: BillProductInfoModel;
 
   @ApiProperty({ type: BillUserInfoModel, description: 'USER ACCOUNT' })
   userAccount: BillUserInfoModel;
@@ -66,6 +69,12 @@ export class AdminBillItemModel {
     description: 'REFERRER INFO',
   })
   referrerInfo: BillReferrerInfoModel | null;
+
+  @ApiPropertyOptional({
+    example: 'SePay',
+    description: 'PAYMENT METHOD',
+  })
+  paymentMethod?: string;
 
   @ApiProperty({
     type: BillPaymentAmountModel,
