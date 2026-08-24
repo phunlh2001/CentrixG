@@ -146,12 +146,12 @@ export class ProductService {
    * Only returns products that have a manifest file. Hidden products are returned
    * only when `includeHidden` is true (admin path).
    */
-  async findOne(id: string, includeHidden = false): Promise<ProductModel> {
+  async findOne(id: string): Promise<ProductModel> {
     const product = await this.prisma.product.findFirst({
       where: {
         id,
         manifests: { some: {} },
-        ...(includeHidden ? {} : { isDelete: false }),
+        isDelete: false,
       },
       include: PRODUCT_INCLUDE,
     });
