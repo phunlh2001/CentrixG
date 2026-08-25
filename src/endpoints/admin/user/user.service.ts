@@ -1,6 +1,12 @@
 import { PrismaService } from '@app/prisma/prisma.service';
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { BanUserDto, UserAccountModel } from '@app/shared';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BanUserDto,
+  RoleUpdateType,
+  UpdateUserRoleDto,
+  UpdateUserRoleQueryDto,
+  UserAccountModel,
+} from '@app/shared';
 import { Role } from '@app/generated/prisma/enums';
 
 @Injectable()
@@ -79,6 +85,76 @@ export class UserService {
         where: { userId: dto.userId },
       });
     }
+
+    return {
+      id: updatedUser.id,
+      email: updatedUser.email,
+      username: updatedUser.username,
+      role: updatedUser.role,
+      isBlock: updatedUser.isBlock,
+      resonable: updatedUser.resonable,
+      createdAt: updatedUser.createdAt,
+    };
+  }
+
+  /**
+   * Promotes or demotes user role between CUSTOMER and SELLER.
+   * - type = 'promote': CUSTOMER -> SELLER
+   * - type = 'demote': SELLER -> CUSTOMER
+   */
+  async updateUserRole(
+    dto: UpdateUserRoleDto,
+    query: UpdateUserRoleQueryDto,
+  ): Promise<UserAccountModel> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: dto.userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException(`User with ID ${dto.userId} not found`);
+    }
+
+    if (user.role === Role.ADMIN || user.role === Role.MOD) {
+      throw new BadRequestException('Cannot modify the role of ADMIN or MOD accounts');
+    }
+
+    let targetRole: Role;
+
+    if (query.type === RoleUpdateType.PROMOTE) {
+      if (user.role === Role.SELLER) {
+        throw new BadRequestException('User is already a SELLER');
+      }
+      if (user.role !== Role.CUSTOMER) {
+        throw new BadRequestException(`Cannot promote user with role ${user.role}`);
+      }
+      targetRole = Role.SELLER;
+    } else if (query.type === RoleUpdateType.DEMOTE) {
+      if (user.role === Role.CUSTOMER) {
+        throw new BadRequestException('User is already a CUSTOMER');
+      }
+      if (user.role !== Role.SELLER) {
+        throw new BadRequestException(`Cannot demote user with role ${user.role}`);
+      }
+      targetRole = Role.CUSTOMER;
+    } else {
+      throw new BadRequestException(
+        "Invalid action type. Expected 'promote' or 'demote'",
+      );
+    }
+
+    const updatedUser = await this.prisma.user.update({
+      where: { id: dto.userId },
+      data: { role: targetRole },
+      select: {
+        id: true,
+        email: true,
+        username: true,
+        role: true,
+        isBlock: true,
+        resonable: true,
+        createdAt: true,
+      },
+    });
 
     return {
       id: updatedUser.id,
