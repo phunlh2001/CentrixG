@@ -80,7 +80,7 @@ export class OverviewService {
         };
       })
       .sort((a, b) => b.paidUsersCount - a.paidUsersCount)
-      .slice(0, 3);
+      .slice(0, 4);
 
     const topSellers: TopSellerProductModel[] = rankedProducts.map(
       (item, index) => ({
@@ -108,7 +108,7 @@ export class OverviewService {
     // 4. Newly Created Accounts (Without passwordHash)
     const recentUsersRaw = await this.prisma.user.findMany({
       where: { role: { not: Role.ADMIN } },
-      take: 5,
+      take: 3,
       orderBy: { createdAt: 'desc' },
       select: {
         id: true,

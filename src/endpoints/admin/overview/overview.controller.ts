@@ -7,7 +7,7 @@ import { AdminOverviewQueryDto, AdminOverviewResponseModel } from '@app/shared';
 
 @ApiTags('Admin')
 @ApiBearerAuth('access-token')
-@Roles(Role.ADMIN, Role.MOD)
+@Roles(Role.ADMIN)
 @Controller('admin/overview')
 export class OverviewController {
   constructor(private readonly overviewService: OverviewService) {}
