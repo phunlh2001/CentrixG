@@ -16,6 +16,24 @@ export class ThirdPartyController {
   constructor(private readonly thirdPartyService: ThirdPartyService) {}
 
   /**
+   * Get single third-party fileUrl for Setup (private API)
+   */
+  @Get('setup')
+  @ApiOperation({
+    summary: 'Get single third-party fileUrl for Setup (private API)',
+  })
+  @ApiOkResponse({
+    type: ThirdPartyFileUrlModel,
+    description: 'Setup fileUrl object',
+  })
+  @ApiNotFoundResponse({
+    description: 'Third-party file URL for Setup not found',
+  })
+  getSetupFileUrl(): Promise<ThirdPartyFileUrlModel> {
+    return this.thirdPartyService.getSetupFileUrl();
+  }
+
+  /**
    * Get single third-party fileUrl for Ubisoft (private API)
    */
   @Get('ubisoft')

@@ -20,6 +20,11 @@ export class CategoryService {
   async findAll() {
     const type = await this.prisma.$transaction(async (tx) => {
       return tx.type.findMany({
+        where: {
+          name: {
+            not: { equals: 'Setup' }
+          }
+        },
         include: {
           products: {
             include: {

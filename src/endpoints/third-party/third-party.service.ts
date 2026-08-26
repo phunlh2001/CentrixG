@@ -7,6 +7,32 @@ export class ThirdPartyService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
+   * Fetches a single third-party file URL object for Setup.
+   */
+  async getSetupFileUrl(): Promise<ThirdPartyFileUrlModel> {
+    const record = await this.prisma.thirdParty.findFirst({
+      where: {
+        type: {
+          name: {
+            equals: 'Setup',
+          },
+        },
+      },
+      select: {
+        fileUrl: true,
+      },
+    });
+
+    if (!record) {
+      throw new NotFoundException('Third-party file URL for Setup was not found');
+    }
+
+    return {
+      fileUrl: record.fileUrl,
+    };
+  }
+
+  /**
    * Fetches a single third-party file URL object for Ubisoft platform.
    */
   async getUbisoftFileUrl(): Promise<ThirdPartyFileUrlModel> {
