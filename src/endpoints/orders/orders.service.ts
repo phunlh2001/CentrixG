@@ -34,28 +34,24 @@ export class OrdersService {
     userId: string,
   ): Promise<CreateOrderResponseModel> {
     if (!userId) {
-      throw new UnauthorizedException(
-        'User must be logged in to create an order',
-      );
+      throw new UnauthorizedException('User must be logged in to create an order');
     }
 
-    // if (!dto.productId) {
-    //   throw new BadRequestException('Product ID is required for order');
-    // }
+    if (!dto.productId) {
+      throw new BadRequestException('Product ID is required for order');
+    }
 
     // 1. Verify target product exists and is not soft-deleted
     const product = await this.prisma.product.findFirst({
       where: {
-        // id: dto.productId,
+        id: dto.productId,
         isDelete: false,
       },
       select: { id: true, name: true },
     });
 
     if (!product) {
-      throw new NotFoundException(
-        `Product with ID ${dto.productId} not found or unavailable`,
-      );
+      throw new NotFoundException(`Product with ID ${dto.productId} not found or unavailable`);
     }
 
     const now = new Date();
