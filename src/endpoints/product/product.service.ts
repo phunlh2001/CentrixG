@@ -126,7 +126,7 @@ export class ProductService {
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: "desc" },
+        orderBy: { updatedAt: "desc" },
         include: PRODUCT_INCLUDE,
       }),
       this.prisma.product.count({ where }),
