@@ -39,8 +39,10 @@ export class BillService {
               },
             },
             {
-              product: {
-                name: { contains: search, mode: 'insensitive' },
+              products: {
+                some: {
+                  name: { contains: search, mode: 'insensitive' },
+                },
               },
             },
           ],
@@ -61,7 +63,7 @@ export class BillService {
               email: true,
             },
           },
-          product: {
+          products: {
             select: {
               id: true,
               appId: true,
@@ -78,15 +80,17 @@ export class BillService {
       // 1. BILL / ORDER ID
       const billId = order.orderCode || order.id;
 
-      // 2. PRODUCT INFO (Strictly 1 Product per Order)
-      const productInfo: BillProductInfoModel = {
-        id: order.product.id,
-        appId: order.product.appId,
-        name: order.product.name,
-        imageUrl: order.product.imageUrl,
-      };
+      // 2. PRODUCTS LIST & PRIMARY PRODUCT INFO
+      const products: BillProductInfoModel[] = order.products.map((p) => ({
+        id: p.id,
+        appId: p.appId,
+        name: p.name,
+        imageUrl: p.imageUrl,
+      }));
+      const productInfo: BillProductInfoModel | null =
+        products.length > 0 ? products[0] : null;
 
-      // 3. USER ACCOUNT (Strictly 1 User per Order)
+      // 3. USER ACCOUNT
       const userAccount: BillUserInfoModel = {
         id: order.user.id,
         username: order.user.username,
@@ -109,6 +113,7 @@ export class BillService {
 
       return {
         id: billId,
+        products,
         productInfo,
         userAccount,
         referrerInfo,

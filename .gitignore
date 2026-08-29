@@ -42,3 +42,5 @@ yarn-error.log*
 .agents
 src/prisma/seed.ts
 skills-lock.json
+
+backups/*

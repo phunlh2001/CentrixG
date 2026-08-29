@@ -25,33 +25,41 @@ export class OrdersService {
 
   /**
    * Generates or reuses a pending order for SePay payment.
-   * Strictly enforces 1 Product and 1 User per Order:
-   * - If an unexpired pending order for the same user, same product, and exact same amount exists, reuses it with remaining time left.
-   * - If order details changed (different product / amount) or order expired, hard-deletes the old order and creates a new one with 900s expiration.
+   * Supports 1 to N products per order:
+   * - If an unexpired pending order for the same user, exact same products, and same amount exists, reuses it with remaining time left.
+   * - If order details changed (different products / amount) or order expired, hard-deletes the old order and creates a new one with 900s expiration.
    */
   async createOrder(
     dto: CreateOrderDto,
     userId: string,
   ): Promise<CreateOrderResponseModel> {
     if (!userId) {
-      throw new UnauthorizedException('User must be logged in to create an order');
+      throw new UnauthorizedException(
+        'User must be logged in to create an order',
+      );
     }
 
-    if (!dto.productId) {
-      throw new BadRequestException('Product ID is required for order');
+    if (!dto.productIds || dto.productIds.length === 0) {
+      throw new BadRequestException('Order must contain at least 1 product');
     }
 
-    // 1. Verify target product exists and is not soft-deleted
-    const product = await this.prisma.product.findFirst({
+    const uniqueProductIds = Array.from(new Set(dto.productIds));
+
+    // 1. Verify all target products exist and are not soft-deleted
+    const products = await this.prisma.product.findMany({
       where: {
-        id: dto.productId,
+        id: { in: uniqueProductIds },
         isDelete: false,
       },
       select: { id: true, name: true },
     });
 
-    if (!product) {
-      throw new NotFoundException(`Product with ID ${dto.productId} not found or unavailable`);
+    if (products.length !== uniqueProductIds.length) {
+      const foundIds = new Set(products.map((p) => p.id));
+      const missing = uniqueProductIds.filter((id) => !foundIds.has(id));
+      throw new NotFoundException(
+        `These products are unavailable or do not exist: ${missing.join(', ')}`,
+      );
     }
 
     const now = new Date();
@@ -61,6 +69,11 @@ export class OrdersService {
       where: {
         userId,
         status: PaymentStatus.PENDING,
+      },
+      include: {
+        products: {
+          select: { id: true },
+        },
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -74,15 +87,18 @@ export class OrdersService {
       if (remainingSeconds > 0) {
         const isSameAmount =
           Number(existingOrder.amount) === Number(dto.amount);
-        const isSameProduct = existingOrder.productId === dto.productId;
+        const existingIds = new Set(existingOrder.products.map((p) => p.id));
+        const isSameProducts =
+          existingIds.size === uniqueProductIds.length &&
+          uniqueProductIds.every((id) => existingIds.has(id));
 
-        if (isSameAmount && isSameProduct) {
+        if (isSameAmount && isSameProducts) {
           // Re-use existing unexpired matching order
           return this.buildCreateOrderResponse(
             existingOrder.orderCode,
             Number(existingOrder.amount),
             remainingSeconds,
-            existingOrder.productId,
+            existingOrder.products.map((p) => p.id),
           );
         } else {
           // Details changed -> hard-delete old order and proceed to create new one
@@ -109,7 +125,14 @@ export class OrdersService {
         status: PaymentStatus.PENDING,
         expired: DEFAULT_EXPIRED_SECONDS,
         userId,
-        productId: dto.productId ?? '54dafd70-4619-4ac4-b788-17de0ae10add',
+        products: {
+          connect: uniqueProductIds.map((id) => ({ id })),
+        },
+      },
+      include: {
+        products: {
+          select: { id: true },
+        },
       },
     });
 
@@ -117,7 +140,7 @@ export class OrdersService {
       order.orderCode,
       Number(order.amount),
       DEFAULT_EXPIRED_SECONDS,
-      order.productId,
+      order.products.map((p) => p.id),
     );
   }
 
@@ -137,6 +160,11 @@ export class OrdersService {
       where: {
         userId,
         status: PaymentStatus.PENDING,
+      },
+      include: {
+        products: {
+          select: { id: true },
+        },
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -163,7 +191,7 @@ export class OrdersService {
       existingOrder.orderCode,
       Number(existingOrder.amount),
       remainingSeconds,
-      existingOrder.productId,
+      existingOrder.products.map((p) => p.id),
     );
   }
 
@@ -191,7 +219,7 @@ export class OrdersService {
     orderCode: string,
     amount: number,
     expiredSeconds: number,
-    productId: string,
+    productIds: string[],
   ): CreateOrderResponseModel {
     const accountNumber = this.config.getOrThrow<string>(
       SEPAY_CONFIG.accountNumber,
@@ -211,7 +239,7 @@ export class OrdersService {
       bankName,
       qrCodeUrl,
       expired: expiredSeconds,
-      productId,
+      productIds,
     };
   }
 

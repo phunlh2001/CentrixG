@@ -185,6 +185,52 @@ export class SepayService {
     this.logger.log(`Successfully completed order ${orderCode}`);
   }
 
+  /**
+   * Background task running every 16 minutes (960,000 ms) to check all PENDING orders.
+   * If any PENDING order has exceeded its expiration duration (expired seconds),
+   * updates its status to CANCELED.
+   */
+  @Interval(16 * 60 * 1000)
+  async cancelExpiredPendingOrders(): Promise<void> {
+    try {
+      const pendingOrders = await this.prisma.order.findMany({
+        where: { status: PaymentStatus.PENDING },
+        select: { id: true, orderCode: true, createdAt: true, expired: true },
+      });
+
+      if (pendingOrders.length === 0) {
+        return;
+      }
+
+      const now = new Date();
+      const expiredOrderIds: string[] = [];
+
+      for (const order of pendingOrders) {
+        const elapsedSeconds = Math.floor(
+          (now.getTime() - order.createdAt.getTime()) / 1000,
+        );
+        if (elapsedSeconds >= order.expired) {
+          expiredOrderIds.push(order.id);
+        }
+      }
+
+      if (expiredOrderIds.length > 0) {
+        await this.prisma.order.updateMany({
+          where: { id: { in: expiredOrderIds } },
+          data: { status: PaymentStatus.CANCELED },
+        });
+
+        this.logger.log(
+          `Auto-canceled ${expiredOrderIds.length} expired pending orders.`,
+        );
+      }
+    } catch (err) {
+      this.logger.error(
+        `Error during cancelExpiredPendingOrders interval execution: ${err}`,
+      );
+    }
+  }
+
   private extractOrderCode(
     code: string | null,
     content: string,

@@ -55,10 +55,17 @@ export class AdminBillItemModel {
   id: string;
 
   @ApiProperty({
-    type: BillProductInfoModel,
-    description: 'PRODUCT INFO',
+    type: [BillProductInfoModel],
+    description: 'LIST OF PRODUCTS IN ORDER',
   })
-  productInfo: BillProductInfoModel;
+  products: BillProductInfoModel[];
+
+  @ApiPropertyOptional({
+    type: BillProductInfoModel,
+    nullable: true,
+    description: 'PRIMARY PRODUCT INFO (for single-item views)',
+  })
+  productInfo?: BillProductInfoModel | null;
 
   @ApiProperty({ type: BillUserInfoModel, description: 'USER ACCOUNT' })
   userAccount: BillUserInfoModel;
@@ -74,7 +81,7 @@ export class AdminBillItemModel {
     example: 'PENDING',
     description: 'ORDER STATUS',
   })
-  orderStatus: string;
+  orderStatus?: string;
 
   @ApiProperty({
     type: BillPaymentAmountModel,

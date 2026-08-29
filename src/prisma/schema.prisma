@@ -30,7 +30,7 @@ enum PaymentStatus {
   PENDING
   COMPLETED
   FAILED
-  REFUNDED
+  CANCELED
 }
 
 /// A single game imported from SteamDB or managed in catalog.
@@ -72,8 +72,8 @@ model Product {
   typeId Int?
   type   Type? @relation(fields: [typeId], references: [id], onDelete: SetNull)
 
-  // Orders associated with this product (1 Product : N Orders).
-  orders Order[]
+  // Orders associated with this product (N Products : M Orders).
+  orders Order[] @relation("OrderProducts")
 
   @@index([typeId])
   @@index([disabled])
@@ -233,13 +233,11 @@ model Order {
   expired   Int           @default(900) // Expiration duration in seconds (default: 900s / 15 minutes)
   userId    String
   user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  productId String
-  product   Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  products  Product[]     @relation("OrderProducts")
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
 
   @@index([orderCode])
   @@index([userId])
-  @@index([productId])
   @@map("orders")
 }
