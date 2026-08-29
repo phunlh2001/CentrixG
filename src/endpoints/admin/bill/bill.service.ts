@@ -87,8 +87,6 @@ export class BillService {
         name: p.name,
         imageUrl: p.imageUrl,
       }));
-      const productInfo: BillProductInfoModel | null =
-        products.length > 0 ? products[0] : null;
 
       // 3. USER ACCOUNT
       const userAccount: BillUserInfoModel = {
@@ -114,7 +112,6 @@ export class BillService {
       return {
         id: billId,
         products,
-        productInfo,
         userAccount,
         referrerInfo,
         orderStatus: order.status,

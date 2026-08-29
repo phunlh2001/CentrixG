@@ -60,13 +60,6 @@ export class AdminBillItemModel {
   })
   products: BillProductInfoModel[];
 
-  @ApiPropertyOptional({
-    type: BillProductInfoModel,
-    nullable: true,
-    description: 'PRIMARY PRODUCT INFO (for single-item views)',
-  })
-  productInfo?: BillProductInfoModel | null;
-
   @ApiProperty({ type: BillUserInfoModel, description: 'USER ACCOUNT' })
   userAccount: BillUserInfoModel;
 
