@@ -121,12 +121,45 @@ export class ProductService {
       ],
     };
 
+    if (query.orderByPrice) {
+      const priceSort = query.orderByPrice.toLowerCase() as 'asc' | 'desc';
+      const [prices, total] = await this.prisma.$transaction([
+        this.prisma.productPrice.findMany({
+          where: {
+            currency: Currency.VND,
+            product: where,
+          },
+          orderBy: [
+            { amount: priceSort },
+            { product: { createdAt: 'desc' } },
+            { product: { updatedAt: 'desc' } },
+          ],
+          skip,
+          take: limit,
+          include: {
+            product: {
+              include: PRODUCT_INCLUDE,
+            },
+          },
+        }),
+        this.prisma.product.count({ where }),
+      ]);
+
+      return {
+        items: prices.map((p) => this.toModel(p.product)),
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit) || 0,
+      };
+    }
+
     const [items, total] = await this.prisma.$transaction([
       this.prisma.product.findMany({
         where,
         skip,
         take: limit,
-        orderBy: { updatedAt: "desc" },
+        orderBy: [{ createdAt: 'desc' }, { updatedAt: 'desc' }],
         include: PRODUCT_INCLUDE,
       }),
       this.prisma.product.count({ where }),

@@ -2,12 +2,18 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
 import {
   IsBoolean,
+  IsEnum,
   IsInt,
   IsOptional,
   IsString,
   Max,
   Min,
 } from 'class-validator';
+
+export enum PriceSortOrder {
+  ASC = 'asc',
+  DESC = 'desc',
+}
 
 /**
  * Query parameters for listing products. `includeHidden` is honored only
@@ -59,4 +65,17 @@ export class QueryProductDto {
   @Transform(({ value }) => value === true || value === 'true')
   @IsBoolean()
   hasManifest?: boolean = true;
+
+  @ApiPropertyOptional({
+    enum: PriceSortOrder,
+    description: 'Order products by VND price ("asc" or "desc")',
+  })
+  @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.toLowerCase().trim() : value,
+  )
+  @IsEnum(PriceSortOrder, {
+    message: 'orderByPrice must be either "asc" or "desc"',
+  })
+  orderByPrice?: PriceSortOrder;
 }
