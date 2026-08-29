@@ -58,17 +58,23 @@ export class ManifestService {
       mimeType,
     );
 
-    const manifest = await this.prisma.manifestFile.upsert({
-      where: { appId },
-      create: {
-        appId,
-        manifestUrl: publicUrl,
-      },
-      update: {
-        manifestUrl: publicUrl,
-      },
-      include: MANIFEST_INCLUDE,
-    });
+    const [manifest] = await this.prisma.$transaction([
+      this.prisma.manifestFile.upsert({
+        where: { appId },
+        create: {
+          appId,
+          manifestUrl: publicUrl,
+        },
+        update: {
+          manifestUrl: publicUrl,
+        },
+        include: MANIFEST_INCLUDE,
+      }),
+      this.prisma.product.update({
+        where: { appId },
+        data: { isDelete: true },
+      }),
+    ]);
 
     return this.toModel(manifest);
   }
