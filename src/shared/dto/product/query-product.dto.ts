@@ -78,4 +78,10 @@ export class QueryProductDto {
     message: 'orderByPrice must be either "asc" or "desc"',
   })
   orderByPrice?: PriceSortOrder;
+
+  @ApiPropertyOptional({ description: 'Newest' })
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true')
+  @IsBoolean()
+  newest?: boolean = false;
 }

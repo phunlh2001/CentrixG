@@ -159,7 +159,10 @@ export class ProductService {
         where,
         skip,
         take: limit,
-        orderBy: [{ createdAt: 'desc' }, { updatedAt: 'desc' }],
+        orderBy:
+          query.newest && query.includeHidden
+            ? { updatedAt: 'desc' }
+            : [{ createdAt: 'desc' }, { updatedAt: 'desc' }],
         include: PRODUCT_INCLUDE,
       }),
       this.prisma.product.count({ where }),
