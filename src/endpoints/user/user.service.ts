@@ -1,23 +1,34 @@
 import { PrismaService } from '../../prisma/prisma.service';
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import * as bcrypt from 'bcrypt';
 import { Currency, Prisma, User } from '../../prisma/prisma-client';
 import {
   DlcModel,
   ManifestModel,
   ProductModel,
+  ResetPasswordDto,
+  SendResetPasswordCodeDto,
+  SendResetPasswordCodeResponseModel,
   UserGameModel,
 } from '@app/shared';
+import { MailService } from '../../services/mail/mail.service';
+import { hashPassword } from '../../common/utils/password.util';
+import { MessageResponseDto } from '../../common/dto/message-response.dto';
 
 /**
  * Encapsulates all persistence logic for {@link User} records.
  */
 @Injectable()
 export class UserService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly mailService: MailService,
+  ) {}
 
   /**
    * Deletes all unverified user accounts whose 10-minute verification window has expired.
@@ -263,5 +274,115 @@ export class UserService {
         manifest: manifestModel,
       };
     });
+  }
+
+  /**
+   * Generates a 6-character reset verification code, emails it to user via MailService,
+   * saves/replaces the bcrypt-hashed `resetPasswordCode` in the database, and returns the hashed code to the client.
+   */
+  async sendResetPasswordCode(
+    dto: SendResetPasswordCodeDto,
+  ): Promise<SendResetPasswordCodeResponseModel> {
+    const user = await this.findByEmail(dto.email);
+
+    if (!user) {
+      throw new NotFoundException('User with this email not found');
+    }
+
+    if (user.isBlock) {
+      throw new BadRequestException(
+        'This account has been blocked. Please contact support.',
+      );
+    }
+
+    // 1. Generate 6-character verification code & 1-minute expiration timestamp
+    const verificationCode = Math.floor(
+      100000 + Math.random() * 900000,
+    ).toString();
+    const codeExpiresAt = new Date(Date.now() + 1 * 60 * 1000);
+
+    // 2. Dispatch email via MailService
+    await this.mailService.sendResetPasswordCode(
+      user.email,
+      user.username,
+      verificationCode,
+    );
+
+    // 3. Hash the 6-character code with bcrypt and store the hash in DB
+    const hashedCode = await bcrypt.hash(verificationCode, 10);
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        resetPasswordCode: hashedCode,
+        codeExpiresAt,
+      },
+    });
+
+    return {
+      email: user.email,
+      hashedCode,
+      message: 'Reset verification code sent successfully to email',
+    };
+  }
+
+  /**
+   * Validates email, verifies the 6-character code from request body against the hashed resetPasswordCode in DB,
+   * updates the user's password, resets resetPasswordCode to null, and revokes active sessions.
+   */
+  async resetPassword(dto: ResetPasswordDto): Promise<MessageResponseDto> {
+    const user = await this.findByEmail(dto.email);
+
+    if (!user) {
+      throw new NotFoundException('User with this email not found');
+    }
+
+    if (user.isBlock) {
+      throw new BadRequestException(
+        'This account has been blocked. Please contact support.',
+      );
+    }
+
+    // 1. Verify expiration window (10 minutes)
+    if (!user.codeExpiresAt || user.codeExpiresAt.getTime() < Date.now()) {
+      throw new BadRequestException(
+        'Verification code has expired. Please request a new code.',
+      );
+    }
+
+    // 2. Verify against database resetPasswordCode hash
+    if (!user.resetPasswordCode) {
+      throw new BadRequestException(
+        'No reset password request found for this account. Please request a code first.',
+      );
+    }
+
+    const isCodeValid = await bcrypt.compare(dto.code, user.resetPasswordCode);
+    if (!isCodeValid) {
+      throw new BadRequestException('Invalid verification code');
+    }
+
+    // 3. Hash new password
+    const passwordHash = await hashPassword(dto.newPassword);
+
+    // 4. Update user password in DB and clear resetPasswordCode
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordHash,
+        resetPasswordCode: null,
+        codeExpiresAt: null,
+      },
+    });
+
+    // 5. Invalidate all active session tokens for this user
+    await this.prisma.token.deleteMany({
+      where: { userId: user.id },
+    });
+
+    return {
+      message:
+        'Password has been reset successfully. Please login with your new password.',
+    };
   }
 }

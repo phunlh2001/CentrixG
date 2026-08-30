@@ -165,18 +165,19 @@ model ThirdParty {
 
 /// Customer, Streamer, or Admin account.
 model User {
-  id               String   @id @default(uuid())
-  username         String   @unique
-  email            String   @unique
-  passwordHash     String
-  role             Role      @default(CUSTOMER)
-  isBlock          Boolean   @default(false) // Admin restriction flag upon violation
-  isVerified       Boolean   @default(false) // Email verification status
-  verificationCode String?   // 6-digit verification code
-  codeExpiresAt    DateTime? // Expiration timestamp (10 minutes after dispatch)
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-  resonable        String?
+  id                String    @id @default(uuid())
+  username          String    @unique
+  email             String    @unique
+  passwordHash      String
+  role              Role      @default(CUSTOMER)
+  isBlock           Boolean   @default(false) // Admin restriction flag upon violation
+  isVerified        Boolean   @default(false) // Email verification status
+  verificationCode  String?   // 6-digit verification code
+  codeExpiresAt     DateTime? // Expiration timestamp (10 minutes after dispatch)
+  resetPasswordCode String?   // 6-character reset password verification code (nullable, replaced on multiple requests)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  resonable         String?
 
   // Direct product purchases
   products Product[] @relation("UserProducts")
