@@ -38,7 +38,8 @@ export class QueryProductDto {
 
   @ApiPropertyOptional({
     default: false,
-    description: 'Admins only: include soft-deleted (invisible) products.',
+    description:
+      'Admins only: when true, includes soft-deleted (isDelete: true/false) and disabled (disabled: true/false) products.',
   })
   @IsOptional()
   @Transform(({ value }) => value === true || value === 'true')
@@ -60,11 +61,17 @@ export class QueryProductDto {
   @Max(100)
   pageSize?: number = 20;
 
-  @ApiPropertyOptional({ description: 'Has manifest' })
+  @ApiPropertyOptional({
+    description:
+      'Filter by manifest availability: true = has manifest, false = no manifest',
+  })
   @IsOptional()
-  @Transform(({ value }) => value === true || value === 'true')
+  @Transform(({ value }) => {
+    if (value === undefined || value === null || value === '') return undefined;
+    return value === true || value === 'true';
+  })
   @IsBoolean()
-  hasManifest?: boolean = true;
+  hasManifest?: boolean;
 
   @ApiPropertyOptional({
     enum: PriceSortOrder,

@@ -4,11 +4,14 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Param,
+  ParseIntPipe,
   Post,
 } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
+  ApiConflictResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
@@ -47,6 +50,33 @@ export class UserController {
   })
   getUserGames(@CurrentUser('id') userId: string): Promise<UserGameModel[]> {
     return this.userService.getUserGames(userId);
+  }
+
+  @Post('games/add/:appId')
+  @ApiBearerAuth('access-token')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Add a game to the authenticated user library without creating an order (free claim)',
+  })
+  @ApiOkResponse({
+    type: MessageResponseDto,
+    description: 'Game added to library successfully',
+  })
+  @ApiNotFoundResponse({
+    description: 'Product with Steam AppID not found',
+  })
+  @ApiConflictResponse({
+    description: 'User already owns this game',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Unauthorized or missing Bearer token',
+  })
+  addGameToLibrary(
+    @CurrentUser('id') userId: string,
+    @Param('appId', ParseIntPipe) appId: number,
+  ): Promise<MessageResponseDto> {
+    return this.userService.addGameToLibrary(userId, appId);
   }
 
   @Post('send-reset-code')

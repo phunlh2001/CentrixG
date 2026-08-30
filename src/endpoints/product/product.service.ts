@@ -72,53 +72,49 @@ export class ProductService {
     const limit = query.pageSize ?? 20;
     const skip = (page - 1) * limit;
 
-    const priceCondition: Prisma.ProductWhereInput = query.includeHidden
-      ? {
-          OR: [
-            { prices: { some: { currency: Currency.VND, amount: { gt: 0 } } } },
-            { prices: { some: { currency: Currency.USD, amount: { gt: 0 } } } },
-            { prices: { some: { currency: Currency.CNY, amount: { gt: 0 } } } },
-          ],
-        }
-      : {
-          AND: [
-            { prices: { some: { currency: Currency.VND, amount: { gt: 0 } } } },
-            { prices: { some: { currency: Currency.USD, amount: { gt: 0 } } } },
-            { prices: { some: { currency: Currency.CNY, amount: { gt: 0 } } } },
-          ],
-        };
+    // 1. Visibility condition:
+    // - Customer (includeHidden: false): strictly isDelete=false AND disabled=false
+    // - Admin (includeHidden: true): returns all products regardless of whether isDelete or disabled is true/false
+    const visibilityCondition: Prisma.ProductWhereInput = query.includeHidden
+      ? {}
+      : { isDelete: false, disabled: false };
 
-    const where: Prisma.ProductWhereInput = {
-      ...(query.includeHidden ? {} : { isDelete: false }),
-      ...(query.hasManifest !== undefined
+    // 2. Manifest condition:
+    // - If hasManifest is explicitly specified: true = { some: {} }, false = { none: {} }
+    // - If hasManifest is omitted:
+    //     - Customer (includeHidden: false): requires manifest { some: {} }
+    //     - Admin (includeHidden: true): no manifest filter
+    const manifestCondition: Prisma.ProductWhereInput =
+      query.hasManifest !== undefined
         ? query.hasManifest
           ? { manifests: { some: {} } }
           : { manifests: { none: {} } }
-        : {}),
+        : query.includeHidden
+          ? {}
+          : { manifests: { some: {} } };
+
+    const where: Prisma.ProductWhereInput = {
+      ...visibilityCondition,
+      ...manifestCondition,
       ...(query.search
         ? {
             OR: [
-              { name: { contains: query.search, mode: "insensitive" } },
+              { name: { contains: query.search, mode: 'insensitive' } },
               {
                 categories: {
-                  some: { name: { contains: query.search, mode: "insensitive" } },
+                  some: { name: { contains: query.search, mode: 'insensitive' } },
                 },
               },
             ],
           }
         : {}),
-      AND: [
-        priceCondition,
-        ...(userId
-          ? [
-              {
-                owners: {
-                  none: { id: userId },
-                },
-              },
-            ]
-          : []),
-      ],
+      ...(userId
+        ? {
+            owners: {
+              none: { id: userId },
+            },
+          }
+        : {}),
     };
 
     if (query.orderByPrice) {

@@ -4,6 +4,7 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { Currency, Prisma, User } from '../../prisma/prisma-client';
@@ -383,6 +384,62 @@ export class UserService {
     return {
       message:
         'Password has been reset successfully. Please login with your new password.',
+    };
+  }
+
+  /**
+   * Adds a game (product) directly to user's library without creating an order (free claim).
+   * Enforces 1 user : 1 AppID (prevents duplicates).
+   */
+  async addGameToLibrary(
+    userId: string,
+    appId: number,
+  ): Promise<MessageResponseDto> {
+    if (!userId) {
+      throw new UnauthorizedException('User must be authenticated');
+    }
+
+    // 1. Verify product exists and is active
+    const product = await this.prisma.product.findUnique({
+      where: { appId },
+      select: { id: true, name: true, isDelete: true },
+    });
+
+    if (!product || product.isDelete) {
+      throw new NotFoundException(
+        `Product with Steam AppID ${appId} not found or unavailable`,
+      );
+    }
+
+    // 2. Check if user already owns this game
+    const alreadyOwned = await this.prisma.user.findFirst({
+      where: {
+        id: userId,
+        products: {
+          some: { id: product.id },
+        },
+      },
+      select: { id: true },
+    });
+
+    if (alreadyOwned) {
+      throw new ConflictException(
+        `Game "${product.name}" (AppID: ${appId}) is already in your library`,
+      );
+    }
+
+    // 3. Connect game to user library
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        products: {
+          connect: { id: product.id },
+        },
+      },
+    });
+
+    return {
+      message: `Game "${product.name}" added to your library successfully`,
     };
   }
 }
