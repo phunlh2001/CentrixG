@@ -49,24 +49,41 @@ export class OverviewService {
     const cnyEquivalent =
       Math.round((totalRevenueVnd / CNY_EXCHANGE_RATE) * 100) / 100;
 
-    // 2. Top Seller Products (Max 3)
+    // 2. Top Seller Products (Ranked by completed paid orders within the period)
     const products = await this.prisma.product.findMany({
-      where: { isDelete: false },
+      where: {
+        isDelete: false,
+        orders: {
+          some: {
+            status: PaymentStatus.COMPLETED,
+            createdAt: { gte: startDate },
+          },
+        },
+      },
       include: {
         prices: true,
         categories: { select: { name: true } },
-        owners: { select: { id: true } },
+        orders: {
+          where: {
+            status: PaymentStatus.COMPLETED,
+            createdAt: { gte: startDate },
+          },
+          select: {
+            id: true,
+            userId: true,
+          },
+        },
       },
     });
 
-    // Rank products by number of paid owners
+    // Rank products by number of completed paid orders / purchases
     const rankedProducts = products
       .map((p) => {
         const vndPriceObj = p.prices.find(
           (price) => price.currency === Currency.VND,
         );
         const priceVnd = vndPriceObj ? Number(vndPriceObj.amount) : 0;
-        const paidUsersCount = p.owners.length;
+        const paidUsersCount = p.orders.length;
         const productTotalRevenue = paidUsersCount * priceVnd;
         const primaryCategory =
           p.categories.length > 0 ? p.categories[0].name : 'Action Game';
@@ -79,7 +96,11 @@ export class OverviewService {
           primaryCategory,
         };
       })
-      .sort((a, b) => b.paidUsersCount - a.paidUsersCount)
+      .sort(
+        (a, b) =>
+          b.paidUsersCount - a.paidUsersCount ||
+          b.productTotalRevenue - a.productTotalRevenue,
+      )
       .slice(0, 4);
 
     const topSellers: TopSellerProductModel[] = rankedProducts.map(
