@@ -39,6 +39,7 @@ import {
   UpdateProductTypeDto,
 } from "@app/shared";
 import { PaginatedResult, ProductService } from "./product.service";
+import { VisibilityProductDto } from "@app/shared/dto/product/visibility-product";
 
 @ApiTags("Products")
 @ApiBearerAuth("access-token")
@@ -64,10 +65,10 @@ export class ProductController {
     return this.productService.create(dto);
   }
 
-  // --- Admin: write operations --------------------------------------------
+  // --- Admin & Mod: write operations --------------------------------------------
   @Patch(":id")
   @Roles(Role.ADMIN, Role.MOD)
-  @ApiOperation({ summary: "Update a product / toggle visibility (admin)" })
+  @ApiOperation({ summary: "Update a product details" })
   @ApiOkResponse({ type: ProductModel })
   @ApiNotFoundResponse({ description: "Product not found" })
   update(
@@ -75,6 +76,18 @@ export class ProductController {
     @Body() dto: UpdateProductDto,
   ): Promise<ProductModel> {
     return this.productService.update(id, dto);
+  }
+
+  @Patch(":id/visibility")
+  @Roles(Role.ADMIN, Role.MOD)
+  @ApiOperation({ summary: "Toggle visibility of a product" })
+  @ApiOkResponse({ type: ProductModel })
+  @ApiNotFoundResponse({ description: "Product not found" })
+  toggleVisibility(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() dto: VisibilityProductDto
+  ): Promise<ProductModel> {
+    return this.productService.toggleVisibility(id, dto.value);
   }
 
   @Patch(":id/hide")
@@ -93,7 +106,7 @@ export class ProductController {
   }
 
   @Delete(":id")
-  @Roles(Role.MOD)
+  @Roles(Role.ADMIN, Role.MOD)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: "Hard-delete a product from database permanently (MOD role only).",
