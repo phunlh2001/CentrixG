@@ -87,7 +87,7 @@ export class ProductService {
       case ProductMode.TRASH:
         filterCondition = { isDelete: true };
         break;
-      // case STOREFRONT
+      case ProductMode.STOREFRONT:
       default:
         filterCondition = { manifests: { some: {} }, isDelete: false, disabled: false };
         break;
