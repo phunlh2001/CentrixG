@@ -16,7 +16,7 @@ export class AdminBillQueryDto {
   @IsInt()
   @Min(1)
   @Max(100)
-  pageSize?: number = 10;
+  limit?: number = 10;
 
   @ApiPropertyOptional({
     description: 'Search string by bill ID, transaction reference, username, or email',

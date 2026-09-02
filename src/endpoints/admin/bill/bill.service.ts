@@ -19,8 +19,8 @@ export class BillService {
     query: AdminBillQueryDto,
   ): Promise<AdminBillPaginatedResponseModel> {
     const page = query.page ?? 1;
-    const pageSize = query.pageSize ?? 10;
-    const skip = (page - 1) * pageSize;
+    const limit = query.limit ?? 10;
+    const skip = (page - 1) * limit;
     const search = query.search?.trim();
 
     const where: Prisma.OrderWhereInput = search
@@ -53,7 +53,7 @@ export class BillService {
       this.prisma.order.findMany({
         where,
         skip,
-        take: pageSize,
+        take: limit,
         orderBy: { createdAt: 'desc' },
         include: {
           user: {
@@ -120,13 +120,13 @@ export class BillService {
       };
     });
 
-    const totalPages = Math.ceil(total / pageSize) || 1;
+    const totalPages = Math.ceil(total / limit) || 1;
 
     return {
       items,
       total,
       page,
-      pageSize,
+      limit,
       totalPages,
     };
   }

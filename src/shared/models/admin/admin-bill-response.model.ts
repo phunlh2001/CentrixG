@@ -97,7 +97,7 @@ export class AdminBillPaginatedResponseModel {
   page: number;
 
   @ApiProperty({ example: 10 })
-  pageSize: number;
+  limit: number;
 
   @ApiProperty({ example: 5 })
   totalPages: number;
