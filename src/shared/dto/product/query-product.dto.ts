@@ -15,9 +15,15 @@ export enum PriceSortOrder {
   DESC = 'desc',
 }
 
+export enum ProductMode {
+  WAREHOUSE = 'warehouse',
+  PRODUCT = 'product',
+  STOREFRONT = 'storefront',
+  TRASH = 'trash'
+}
+
 /**
- * Query parameters for listing products. `includeHidden` is honored only
- * for admins (enforced in the controller/service).
+ * Query parameters for listing products across Storefront, Product Management, and Warehouse.
  */
 export class QueryProductDto {
   @ApiPropertyOptional({
@@ -36,16 +42,6 @@ export class QueryProductDto {
   @IsString()
   search?: string;
 
-  @ApiPropertyOptional({
-    default: false,
-    description:
-      'Admins only: when true, includes soft-deleted (isDelete: true/false) and disabled (disabled: true/false) products.',
-  })
-  @IsOptional()
-  @Transform(({ value }) => value === true || value === 'true')
-  @IsBoolean()
-  includeHidden?: boolean = false;
-
   @ApiPropertyOptional({ default: 1, minimum: 1 })
   @IsOptional()
   @Type(() => Number)
@@ -53,25 +49,31 @@ export class QueryProductDto {
   @Min(1)
   page?: number = 1;
 
-  @ApiPropertyOptional({ default: 20, minimum: 1, maximum: 100 })
+  @ApiPropertyOptional({
+    minimum: 1,
+    maximum: 100,
+    description:
+      'Number of products per page. If null or omitted, returns all matching products unpaginated.',
+  })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
   @Max(100)
-  pageSize?: number = 20;
+  limit?: number;
 
   @ApiPropertyOptional({
-    description:
-      'Filter by manifest availability: true = has manifest, false = no manifest',
+    description: 'Filter by mode: "warehouse", "product", "trash" or "storefront"',
   })
   @IsOptional()
   @Transform(({ value }) => {
     if (value === undefined || value === null || value === '') return undefined;
-    return value === true || value === 'true';
+    return value.trim();
   })
-  @IsBoolean()
-  hasManifest?: boolean;
+  @IsEnum(ProductMode, {
+    message: 'mode must be either "warehouse", "product", "trash" or "storefront"',
+  })
+  mode?: ProductMode = ProductMode.STOREFRONT;
 
   @ApiPropertyOptional({
     enum: PriceSortOrder,
@@ -86,7 +88,7 @@ export class QueryProductDto {
   })
   orderByPrice?: PriceSortOrder;
 
-  @ApiPropertyOptional({ description: 'Newest' })
+  @ApiPropertyOptional({ description: 'Sort by newest (updatedAt: desc)' })
   @IsOptional()
   @Transform(({ value }) => value === true || value === 'true')
   @IsBoolean()

@@ -105,6 +105,21 @@ export class ProductController {
     return { message: `Product ${id} hidden` };
   }
 
+  @Patch(":id/restore")
+  @Roles(Role.ADMIN, Role.MOD)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: "Restore a soft-deleted product. Sets isDelete = false. Does NOT restore manifests.",
+  })
+  @ApiOkResponse({ type: MessageResponseDto })
+  @ApiNotFoundResponse({ description: "Product not found" })
+  async restoreProduct(
+    @Param("id", ParseUUIDPipe) id: string,
+  ): Promise<MessageResponseDto> {
+    await this.productService.restore(id);
+    return { message: `Product ${id} restored (manifests remain disconnected)` };
+  }
+
   @Delete(":id")
   @Roles(Role.ADMIN, Role.MOD)
   @HttpCode(HttpStatus.OK)

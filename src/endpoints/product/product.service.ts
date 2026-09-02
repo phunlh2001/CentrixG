@@ -16,6 +16,7 @@ import {
   DlcModel,
   PricingDto,
   PricingModel,
+  ProductMode,
   ProductModel,
   PurchaseManyProductsDto,
   QueryProductDto,
@@ -68,34 +69,32 @@ export class ProductService {
     query: QueryProductDto,
     userId?: string,
   ): Promise<PaginatedResult<ProductModel>> {
+    const isUnpaginated = query.limit == null;
     const page = query.page ?? 1;
-    const limit = query.pageSize ?? 20;
-    const skip = (page - 1) * limit;
+    const limit = query.limit;
+    const skip = limit != null ? (page - 1) * limit : undefined;
+    const take = limit != null ? limit : undefined;
 
-    // 1. Visibility condition:
-    // - Customer (includeHidden: false): strictly isDelete=false AND disabled=false
-    // - Admin (includeHidden: true): returns all products regardless of whether isDelete or disabled is true/false
-    const visibilityCondition: Prisma.ProductWhereInput = query.includeHidden
-      ? {}
-      : { isDelete: false, disabled: false };
+    let filterCondition: Prisma.ProductWhereInput;
 
-    // 2. Manifest condition:
-    // - If hasManifest is explicitly specified: true = { some: {} }, false = { none: {} }
-    // - If hasManifest is omitted:
-    //     - Customer (includeHidden: false): requires manifest { some: {} }
-    //     - Admin (includeHidden: true): no manifest filter
-    const manifestCondition: Prisma.ProductWhereInput =
-      query.hasManifest !== undefined
-        ? query.hasManifest
-          ? { manifests: { some: {} } }
-          : { manifests: { none: {} } }
-        : query.includeHidden
-          ? {}
-          : { manifests: { some: {} } };
+    switch (query.mode) {
+      case ProductMode.PRODUCT:
+        filterCondition = { manifests: { some: {} }, isDelete: false };
+        break;
+      case ProductMode.WAREHOUSE:
+        filterCondition = { manifests: { none: {} }, isDelete: false };
+        break;
+      case ProductMode.TRASH:
+        filterCondition = { isDelete: true };
+        break;
+      // case STOREFRONT
+      default:
+        filterCondition = { manifests: { some: {} }, isDelete: false, disabled: false };
+        break;
+    }
 
     const where: Prisma.ProductWhereInput = {
-      ...visibilityCondition,
-      ...manifestCondition,
+      ...filterCondition,
       ...(query.search
         ? {
             OR: [
@@ -131,7 +130,7 @@ export class ProductService {
             { product: { updatedAt: 'desc' } },
           ],
           skip,
-          take: limit,
+          take,
           include: {
             product: {
               include: PRODUCT_INCLUDE,
@@ -144,9 +143,13 @@ export class ProductService {
       return {
         items: prices.map((p) => this.toModel(p.product)),
         total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit) || 0,
+        page: isUnpaginated ? 1 : page,
+        limit: isUnpaginated ? total : limit!,
+        totalPages: isUnpaginated
+          ? total > 0
+            ? 1
+            : 0
+          : Math.ceil(total / limit!) || 0,
       };
     }
 
@@ -154,9 +157,9 @@ export class ProductService {
       this.prisma.product.findMany({
         where,
         skip,
-        take: limit,
+        take,
         orderBy:
-          query.newest && query.includeHidden
+          query.newest
             ? { updatedAt: 'desc' }
             : [{ createdAt: 'desc' }, { updatedAt: 'desc' }],
         include: PRODUCT_INCLUDE,
@@ -167,9 +170,13 @@ export class ProductService {
     return {
       items: items.map((i) => this.toModel(i)),
       total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit) || 0,
+      page: isUnpaginated ? 1 : page,
+      limit: isUnpaginated ? total : limit!,
+      totalPages: isUnpaginated
+        ? total > 0
+          ? 1
+          : 0
+        : Math.ceil(total / limit!) || 0,
     };
   }
 
@@ -255,6 +262,27 @@ export class ProductService {
   }
 
   /**
+   * Toggle visibility of a product (admins). Runs in a transaction.
+   */
+  async toggleVisibility(id: string, value: boolean): Promise<ProductModel> {
+    await this.ensureExists(id);
+
+    const product = await this.prisma.$transaction(async (tx) => {
+      await tx.product.update({
+        where: { id },
+        data: { disabled: value },
+      });
+
+      return tx.product.findUniqueOrThrow({
+        where: { id },
+        include: PRODUCT_INCLUDE,
+      });
+    });
+
+    return this.toModel(product);
+  }
+
+  /**
    * Soft-deletes a product: sets isDelete = true instead of removing it.
    * DLC rows are left intact.
    */
@@ -264,6 +292,19 @@ export class ProductService {
     await this.prisma.product.update({
       where: { id },
       data: { isDelete: true },
+    });
+  }
+
+  /**
+   * Restores a soft-deleted product: sets isDelete = false.
+   * Does NOT restore manifests — you must call import manifest separately.
+   */
+  async restore(id: string): Promise<void> {
+    await this.ensureExists(id);
+
+    await this.prisma.product.update({
+      where: { id },
+      data: { isDelete: false },
     });
   }
 
