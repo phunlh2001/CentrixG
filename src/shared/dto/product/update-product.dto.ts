@@ -13,9 +13,17 @@ export class UpdateProductDto extends PartialType(
 ) {
   @ApiPropertyOptional({
     example: false,
-    description: 'Soft-delete flag. true hides the product from customers.',
+    description: 'Soft-delete flag.',
   })
   @IsOptional()
   @IsBoolean()
   isDelete?: boolean;
+
+  @ApiPropertyOptional({
+    example: false,
+    description: 'Hides the product from customers.',
+  })
+  @IsOptional()
+  @IsBoolean()
+  disabled?: boolean;
 }

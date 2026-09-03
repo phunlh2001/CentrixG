@@ -586,6 +586,7 @@ export class ProductService {
       ...(dto.platforms !== undefined && { platforms: dto.platforms }),
       ...(dto.isDelete !== undefined && { isDelete: dto.isDelete }),
       ...(dto.isDenuvo !== undefined && { isDenuvo: dto.isDenuvo }),
+      ...(dto.disabled !== undefined && { disabled: dto.disabled }),
     };
   }
 }
