@@ -50,6 +50,7 @@ export class OrdersService {
       where: {
         id: { in: uniqueProductIds },
         isDelete: false,
+        disabled: false,
       },
       select: { id: true, name: true },
     });

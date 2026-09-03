@@ -53,6 +53,7 @@ export class OverviewService {
     const products = await this.prisma.product.findMany({
       where: {
         isDelete: false,
+        disabled: false,
         orders: {
           some: {
             status: PaymentStatus.COMPLETED,

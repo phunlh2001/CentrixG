@@ -72,7 +72,7 @@ export class ManifestService {
       }),
       this.prisma.product.update({
         where: { appId },
-        data: { isDelete: true },
+        data: { disabled: true },
       }),
     ]);
 
