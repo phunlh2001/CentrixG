@@ -76,4 +76,101 @@ export class SupabaseStorageService {
     );
     return publicUrlData.publicUrl;
   }
+
+  /**
+   * Deletes all manifest files associated with a Steam AppID from Supabase Storage bucket.
+   * Also attempts to extract and remove specific path from manifestUrl if provided.
+   */
+  async deleteManifestsByAppId(
+    appId: number,
+    manifestUrl?: string | null,
+  ): Promise<void> {
+    if (!this.supabase) {
+      this.logger.warn(
+        `Supabase storage client not configured. Skipping manifest file deletion for AppID ${appId}.`,
+      );
+      return;
+    }
+
+    try {
+      const pathsToDelete = new Set<string>();
+
+      // 1. List objects under the folder `${appId}` in the configured bucket
+      const { data: fileList, error: listError } = await this.supabase.storage
+        .from(this.bucketName)
+        .list(`${appId}`);
+
+      if (listError) {
+        this.logger.warn(
+          `Failed to list manifest files for AppID ${appId} in bucket ${this.bucketName}: ${listError.message}`,
+        );
+      } else if (fileList && fileList.length > 0) {
+        for (const file of fileList) {
+          if (file.name) {
+            pathsToDelete.add(`${appId}/${file.name}`);
+          }
+        }
+      }
+
+      // 2. Extract path from manifestUrl if provided and not yet included
+      if (manifestUrl) {
+        const extractedPath = this.extractStoragePath(manifestUrl);
+        if (extractedPath) {
+          pathsToDelete.add(extractedPath);
+        }
+      }
+
+      // 3. Remove files from bucket if any were identified
+      if (pathsToDelete.size > 0) {
+        const pathsArray = Array.from(pathsToDelete);
+        const { error: removeError } = await this.supabase.storage
+          .from(this.bucketName)
+          .remove(pathsArray);
+
+        if (removeError) {
+          this.logger.error(
+            `Failed to remove manifest files for AppID ${appId} from bucket ${this.bucketName}: ${removeError.message}`,
+          );
+        } else {
+          this.logger.log(
+            `Successfully deleted ${pathsArray.length} manifest file(s) for AppID ${appId} from Supabase bucket ${this.bucketName}`,
+          );
+        }
+      }
+    } catch (err: any) {
+      this.logger.error(
+        `Error during Supabase manifest deletion for AppID ${appId}: ${err?.message || err}`,
+      );
+    }
+  }
+
+  /**
+   * Extracts relative storage path inside bucket from a full Supabase public URL or path string.
+   */
+  private extractStoragePath(urlOrPath: string): string | null {
+    if (!urlOrPath) return null;
+
+    if (!urlOrPath.startsWith('http://') && !urlOrPath.startsWith('https://')) {
+      let cleaned = urlOrPath.replace(/^\/+/, '');
+      if (cleaned.startsWith(`${this.bucketName}/`)) {
+        cleaned = cleaned.slice(this.bucketName.length + 1);
+      }
+      return cleaned;
+    }
+
+    try {
+      const parsedUrl = new URL(urlOrPath);
+      const bucketMarker = `/${this.bucketName}/`;
+      const bucketIndex = parsedUrl.pathname.indexOf(bucketMarker);
+      if (bucketIndex !== -1) {
+        return decodeURIComponent(
+          parsedUrl.pathname.slice(bucketIndex + bucketMarker.length),
+        );
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }
 }
+

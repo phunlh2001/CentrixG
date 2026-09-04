@@ -22,6 +22,7 @@ import {
   QueryProductDto,
   UpdateProductDto,
 } from "@app/shared";
+import { SupabaseStorageService } from "@app/services/supabase/supabase-storage.service";
 
 export interface PaginatedResult<T> {
   items: T[];
@@ -46,7 +47,10 @@ type ProductWithRelations = Prisma.ProductGetPayload<{
 
 @Injectable()
 export class ProductService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly supabaseStorageService: SupabaseStorageService,
+  ) {}
 
   /**
    * Creates a single product together with its full pricing (all currencies,
@@ -310,16 +314,38 @@ export class ProductService {
 
   /**
    * Hard-deletes a product: permanently removes DLCs, manifest files, prices, categories,
-   * and product record from database. Restricted to MOD role in controller.
+   * and product record from database. If product has manifest files, also deletes them from Supabase storage.
+   * Restricted to ADMIN and MOD roles in controller.
    */
   async hardDelete(id: string): Promise<void> {
     const product = await this.prisma.product.findUnique({
       where: { id },
-      select: { id: true, appId: true },
+      select: {
+        id: true,
+        appId: true,
+        manifests: {
+          select: {
+            id: true,
+            manifestUrl: true,
+          },
+        },
+      },
     });
 
     if (!product) {
       throw new NotFoundException(`Product ${id} not found`);
+    }
+
+    const hasManifest = product.manifests && product.manifests.length > 0;
+
+    // If product has manifest, clean up storage files in Supabase bucket
+    if (hasManifest) {
+      for (const manifest of product.manifests) {
+        await this.supabaseStorageService.deleteManifestsByAppId(
+          product.appId,
+          manifest.manifestUrl,
+        );
+      }
     }
 
     await this.prisma.$transaction(async (tx) => {
