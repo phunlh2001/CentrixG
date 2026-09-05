@@ -30,6 +30,7 @@ import {
   MessageResponseDto,
 } from "../../common/dto/message-response.dto";
 import {
+  BulkDeleteProductsDto,
   CreateProductDto,
   PaginatedProductsModel,
   ProductModel,
@@ -118,6 +119,25 @@ export class ProductController {
   ): Promise<MessageResponseDto> {
     await this.productService.restore(id);
     return { message: `Product ${id} restored (manifests remain disconnected)` };
+  }
+
+  @Delete("bulk")
+  @Roles(Role.ADMIN, Role.MOD)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: "Hard-delete multiple products permanently (ADMIN & MOD roles).",
+  })
+  @ApiOkResponse({ type: MessageResponseDto })
+  @ApiNotFoundResponse({
+    description: "One or more products in productIds list do not exist",
+  })
+  @ApiBadRequestResponse({
+    description: "Invalid input payload or empty productIds list",
+  })
+  async bulkDelete(
+    @Body() dto: BulkDeleteProductsDto,
+  ): Promise<MessageResponseDto> {
+    return this.productService.bulkDelete(dto);
   }
 
   @Delete(":id")

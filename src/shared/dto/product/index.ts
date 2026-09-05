@@ -5,3 +5,4 @@ export * from './update-product.dto';
 export * from './query-product.dto';
 export * from './purchase-many-products.dto';
 export * from './update-product-type.dto';
+export * from './bulk-delete-products.dto';

@@ -11,6 +11,7 @@ import {
 } from "../../prisma/prisma-client";
 import { PrismaService } from "../../prisma/prisma.service";
 import {
+  BulkDeleteProductsDto,
   CreateDlcDto,
   CreateProductDto,
   DlcModel,
@@ -22,6 +23,7 @@ import {
   QueryProductDto,
   UpdateProductDto,
 } from "@app/shared";
+import { MessageResponseDto } from "../../common/dto/message-response.dto";
 import { SupabaseStorageService } from "@app/services/supabase/supabase-storage.service";
 
 export interface PaginatedResult<T> {
@@ -355,6 +357,86 @@ export class ProductService {
       await tx.category.deleteMany({ where: { productId: id } });
       await tx.product.delete({ where: { id } });
     });
+  }
+
+  /**
+   * Hard-deletes multiple products permanently:
+   * 1. Validates that all requested product IDs exist. If any are missing, throws NotFoundException.
+   * 2. Cleans up manifest files from Supabase Storage for products with manifests.
+   * 3. Atomically deletes related DLCs, manifest files, prices, categories, and product records in a Prisma transaction.
+   * Rolls back completely if any query in the transaction fails.
+   */
+  async bulkDelete(dto: BulkDeleteProductsDto): Promise<MessageResponseDto> {
+    if (!dto.productIds || dto.productIds.length === 0) {
+      throw new BadRequestException("Product IDs array cannot be empty");
+    }
+
+    const uniqueProductIds = Array.from(new Set(dto.productIds));
+
+    // 1. Pre-flight check: retrieve all target products
+    const existingProducts = await this.prisma.product.findMany({
+      where: { id: { in: uniqueProductIds } },
+      select: {
+        id: true,
+        appId: true,
+        name: true,
+        manifests: {
+          select: {
+            id: true,
+            manifestUrl: true,
+          },
+        },
+      },
+    });
+
+    if (existingProducts.length !== uniqueProductIds.length) {
+      const foundIds = new Set(existingProducts.map((p) => p.id));
+      const missingIds = uniqueProductIds.filter((id) => !foundIds.has(id));
+      throw new NotFoundException(
+        `Cannot perform bulk delete. These products do not exist: ${missingIds.join(", ")}`,
+      );
+    }
+
+    // 2. Clean up storage files in Supabase bucket for products that have manifests
+    for (const product of existingProducts) {
+      if (product.manifests && product.manifests.length > 0) {
+        for (const manifest of product.manifests) {
+          await this.supabaseStorageService.deleteManifestsByAppId(
+            product.appId,
+            manifest.manifestUrl,
+          );
+        }
+      }
+    }
+
+    const appIds = existingProducts.map((p) => p.appId);
+
+    // 3. Atomically hard-delete from database with rollback on failure
+    await this.prisma.$transaction(async (tx) => {
+      await tx.dLC.deleteMany({
+        where: { productId: { in: uniqueProductIds } },
+      });
+
+      await tx.manifestFile.deleteMany({
+        where: { appId: { in: appIds } },
+      });
+
+      await tx.productPrice.deleteMany({
+        where: { productId: { in: uniqueProductIds } },
+      });
+
+      await tx.category.deleteMany({
+        where: { productId: { in: uniqueProductIds } },
+      });
+
+      await tx.product.deleteMany({
+        where: { id: { in: uniqueProductIds } },
+      });
+    });
+
+    return {
+      message: `Successfully deleted ${uniqueProductIds.length} product(s) permanently`,
+    };
   }
 
   /**
