@@ -5,10 +5,12 @@ import {
   AdminBillPaginatedResponseModel,
   AdminBillQueryDto,
 } from '@app/shared';
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Patch, Query, UseGuards } from '@nestjs/common';
 import {
+  ApiBadRequestResponse,
   ApiBearerAuth,
   ApiForbiddenResponse,
+  ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
@@ -16,10 +18,11 @@ import {
 } from '@nestjs/swagger';
 import { Role } from '../../../prisma/prisma-client';
 import { BillService } from './bill.service';
+import { MessageResponseDto } from '../../../common/dto/message-response.dto';
 
 @ApiTags('Admin')
 @ApiBearerAuth('access-token')
-@Roles(Role.ADMIN)
+@Roles(Role.ADMIN, Role.MOD)
 @Controller('admin/bill')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class BillController {
@@ -32,11 +35,30 @@ export class BillController {
   @ApiOkResponse({ type: AdminBillPaginatedResponseModel })
   @ApiUnauthorizedResponse({ description: 'Bearer token missing or invalid' })
   @ApiForbiddenResponse({
-    description: 'Forbidden - Endpoint only accessible by ADMIN role',
+    description: 'Forbidden - Endpoint only accessible by ADMIN and MOD roles',
   })
   async getBills(
     @Query() query: AdminBillQueryDto,
   ): Promise<AdminBillPaginatedResponseModel> {
     return this.billService.findAll(query);
   }
+
+  @Patch('refund/:id')
+  @Roles(Role.ADMIN, Role.MOD)
+  @ApiOperation({
+    summary: 'Refund a completed bill/order and remove products from customer library',
+  })
+  @ApiOkResponse({ type: MessageResponseDto })
+  @ApiNotFoundResponse({ description: 'Order / Bill not found' })
+  @ApiBadRequestResponse({
+    description: 'Order cannot be refunded (not completed or already refunded)',
+  })
+  @ApiUnauthorizedResponse({ description: 'Bearer token missing or invalid' })
+  @ApiForbiddenResponse({
+    description: 'Forbidden - Endpoint only accessible by ADMIN and MOD roles',
+  })
+  async refundBill(@Param('id') id: string): Promise<MessageResponseDto> {
+    return this.billService.refund(id);
+  }
 }
+
