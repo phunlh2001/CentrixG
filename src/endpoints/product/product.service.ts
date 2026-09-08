@@ -52,6 +52,7 @@ const STOREFRONT_PRODUCT_INCLUDE = {
 /** Relations for other catalog product lists (id, name, appId, publisher, disabled, isDenuvo, isDelete, type) */
 const OTHER_PRODUCT_INCLUDE = {
   type: true,
+  prices: true,
 } satisfies Prisma.ProductInclude;
 
 type ProductWithRelations = Prisma.ProductGetPayload<{
@@ -615,6 +616,8 @@ export class ProductService {
     name: string;
     appId: number;
     publisher: string | null;
+    imageUrl: string | null;
+    prices?: { currency: Currency; amount: Prisma.Decimal }[];
     disabled: boolean;
     isDenuvo: boolean;
     isDelete: boolean;
@@ -625,6 +628,8 @@ export class ProductService {
       name: product.name,
       appId: product.appId,
       publisher: product.publisher,
+      imageUrl: product.imageUrl,
+      prices: product.prices ? this.toPricing(product.prices) : undefined,
       disabled: product.disabled,
       isDenuvo: product.isDenuvo,
       isDelete: product.isDelete,
