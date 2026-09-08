@@ -273,8 +273,8 @@ export class ProductService {
         }
       }
 
-      if (dto.pricing) {
-        for (const { currency, amount } of this.pricingRows(dto.pricing)) {
+      if (dto.prices) {
+        for (const { currency, amount } of this.pricingRows(dto.prices)) {
           await tx.productPrice.upsert({
             where: { productId_currency: { productId: id, currency } },
             create: { productId: id, currency, amount },
@@ -734,7 +734,7 @@ export class ProductService {
       platforms: dto.platforms ?? [],
       isDenuvo: dto.isDenuvo ?? false,
       prices: {
-        create: this.pricingRows(dto.pricing),
+        create: this.pricingRows(dto.prices),
       },
       ...(dto.categories && dto.categories.length > 0
         ? {
