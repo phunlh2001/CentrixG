@@ -34,12 +34,23 @@ export interface PaginatedResult<T> {
   totalPages: number;
 }
 
-/** Relations always loaded so responses can expose pricing, DLCs, categories, type, and manifests. */
+/** Full relations loaded for detail views (findOne, findByAppId, create, update, purchase) */
 const PRODUCT_INCLUDE = {
   prices: true,
   dlcs: true,
   categories: true,
   manifests: true,
+  type: true,
+} satisfies Prisma.ProductInclude;
+
+/** Relations for storefront product list (id, name, imageUrl, categories, prices) */
+const STOREFRONT_PRODUCT_INCLUDE = {
+  categories: true,
+  prices: true,
+} satisfies Prisma.ProductInclude;
+
+/** Relations for other catalog product lists (id, name, appId, publisher, disabled, isDenuvo, isDelete, type) */
+const OTHER_PRODUCT_INCLUDE = {
   type: true,
 } satisfies Prisma.ProductInclude;
 
@@ -122,6 +133,11 @@ export class ProductService {
         : {}),
     };
 
+    const isStorefront = !query.mode || query.mode === ProductMode.STOREFRONT;
+    const includeConfig = isStorefront
+      ? STOREFRONT_PRODUCT_INCLUDE
+      : OTHER_PRODUCT_INCLUDE;
+
     if (query.orderByPrice) {
       const priceSort = query.orderByPrice.toLowerCase() as 'asc' | 'desc';
       const [prices, total] = await this.prisma.$transaction([
@@ -139,7 +155,7 @@ export class ProductService {
           take,
           include: {
             product: {
-              include: PRODUCT_INCLUDE,
+              include: includeConfig,
             },
           },
         }),
@@ -147,7 +163,11 @@ export class ProductService {
       ]);
 
       return {
-        items: prices.map((p) => this.toModel(p.product)),
+        items: prices.map((p) =>
+          isStorefront
+            ? this.toStorefrontModel(p.product as any)
+            : this.toOtherModel(p.product as any),
+        ),
         total,
         page: isUnpaginated ? 1 : page,
         limit: isUnpaginated ? total : limit!,
@@ -168,13 +188,17 @@ export class ProductService {
           query.newest
             ? { updatedAt: 'desc' }
             : [{ createdAt: 'desc' }, { updatedAt: 'desc' }],
-        include: PRODUCT_INCLUDE,
+        include: includeConfig,
       }),
       this.prisma.product.count({ where }),
     ]);
 
     return {
-      items: items.map((i) => this.toModel(i)),
+      items: items.map((i) =>
+        isStorefront
+          ? this.toStorefrontModel(i as any)
+          : this.toOtherModel(i as any),
+      ),
       total,
       page: isUnpaginated ? 1 : page,
       limit: isUnpaginated ? total : limit!,
@@ -568,6 +592,51 @@ export class ProductService {
 
   // --- mapping -------------------------------------------------------------
 
+  private toStorefrontModel(product: {
+    id: string;
+    name: string;
+    imageUrl: string | null;
+    categories?: { name: string }[];
+    prices?: { currency: Currency; amount: Prisma.Decimal }[];
+    description: string | null;
+  }): ProductModel {
+    return {
+      id: product.id,
+      name: product.name,
+      imageUrl: product.imageUrl,
+      description: product.description,
+      categories: product.categories?.map((c) => c.name) ?? [],
+      prices: product.prices ? this.toPricing(product.prices) : undefined,
+    };
+  }
+
+  private toOtherModel(product: {
+    id: string;
+    name: string;
+    appId: number;
+    publisher: string | null;
+    disabled: boolean;
+    isDenuvo: boolean;
+    isDelete: boolean;
+    type?: { id: number; name: string } | null;
+  }): ProductModel {
+    return {
+      id: product.id,
+      name: product.name,
+      appId: product.appId,
+      publisher: product.publisher,
+      disabled: product.disabled,
+      isDenuvo: product.isDenuvo,
+      isDelete: product.isDelete,
+      type: product.type
+        ? {
+            id: product.type.id,
+            name: product.type.name,
+          }
+        : null,
+    };
+  }
+
   private toModel(product: ProductWithRelations): ProductModel {
     const manifest =
       product.manifests && product.manifests.length > 0
@@ -609,7 +678,9 @@ export class ProductService {
     };
   }
 
-  private toPricing(prices: ProductWithRelations["prices"]): PricingModel {
+  private toPricing(
+    prices: { currency: Currency; amount: Prisma.Decimal }[],
+  ): PricingModel {
     const amountOf = (currency: Currency): string =>
       prices.find((p) => p.currency === currency)?.amount.toString() ?? "0";
 

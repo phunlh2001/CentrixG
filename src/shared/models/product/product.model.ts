@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { DlcModel } from './dlc.model';
 import { PricingModel } from './pricing.model';
 
@@ -18,72 +18,78 @@ export class ProductModel {
   @ApiProperty({ example: '9c1f...uuid' })
   id: string;
 
-  @ApiProperty({ example: 570 })
-  appId: number;
-
   @ApiProperty({ example: 'Dota 2' })
   name: string;
 
-  @ApiProperty({ nullable: true, example: 'A competitive game...' })
-  description: string | null;
+  @ApiPropertyOptional({ example: 570 })
+  appId?: number;
 
-  @ApiProperty({ nullable: true, example: 'https://cdn.example.com/dota2.jpg' })
-  imageUrl: string | null;
+  @ApiPropertyOptional({ nullable: true, example: 'A competitive game...' })
+  description?: string | null;
 
-  @ApiProperty({
+  @ApiPropertyOptional({ nullable: true, example: 'https://cdn.example.com/dota2.jpg' })
+  imageUrl?: string | null;
+
+  @ApiPropertyOptional({
     type: PricingModel,
     description: 'Complete pricing across all supported currencies.',
   })
-  pricing: PricingModel;
+  pricing?: PricingModel;
 
-  @ApiProperty({ nullable: true, example: '2013-07-09T00:00:00.000Z' })
-  releaseDate: Date | null;
+  @ApiPropertyOptional({
+    type: PricingModel,
+    description: 'Multi-currency pricing mapped for storefront.',
+  })
+  prices?: PricingModel;
 
-  @ApiProperty({ nullable: true, example: 'Valve' })
-  developer: string | null;
+  @ApiPropertyOptional({ nullable: true, example: '2013-07-09T00:00:00.000Z' })
+  releaseDate?: Date | null;
 
-  @ApiProperty({ nullable: true, example: 'Valve' })
-  publisher: string | null;
+  @ApiPropertyOptional({ nullable: true, example: 'Valve' })
+  developer?: string | null;
 
-  @ApiProperty({
+  @ApiPropertyOptional({ nullable: true, example: 'Valve' })
+  publisher?: string | null;
+
+  @ApiPropertyOptional({
     type: [String],
     description: 'Categories associated with the product.',
     example: ['Action', 'Strategy', 'Single-player'],
   })
-  categories: string[];
+  categories?: string[];
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     nullable: true,
     type: ProductTypeInfoModel,
     description: 'Type / Category associated with the product (containing id and name)',
   })
   type?: ProductTypeInfoModel | null;
 
-  @ApiProperty({ type: [String], example: ['windows', 'linux'] })
-  platforms: string[];
+  @ApiPropertyOptional({ type: [String], example: ['windows', 'linux'] })
+  platforms?: string[];
 
-  @ApiProperty({ type: [DlcModel], description: 'Downloadable content.' })
-  dlcs: DlcModel[];
+  @ApiPropertyOptional({ type: [DlcModel], description: 'Downloadable content.' })
+  dlcs?: DlcModel[];
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     nullable: true,
     example: 'https://cdn.example.com/manifests/570.zip',
     description: 'Steam manifest file URL linked by AppID',
   })
-  manifestUrl: string | null;
+  manifestUrl?: string | null;
 
-  @ApiProperty({ example: false, description: 'True if disabled from app display' })
-  disabled: boolean;
+  @ApiPropertyOptional({ example: false, description: 'True if disabled from app display' })
+  disabled?: boolean;
 
-  @ApiProperty({ example: false, description: 'True if soft-deleted' })
-  isDelete: boolean;
+  @ApiPropertyOptional({ example: false, description: 'True if soft-deleted' })
+  isDelete?: boolean;
 
-  @ApiProperty({ example: false, description: 'True if product has Denuvo DRM protection' })
-  isDenuvo: boolean;
+  @ApiPropertyOptional({ example: false, description: 'True if product has Denuvo DRM protection' })
+  isDenuvo?: boolean;
 
-  @ApiProperty()
-  createdAt: Date;
+  @ApiPropertyOptional()
+  createdAt?: Date;
 
-  @ApiProperty()
-  updatedAt: Date;
+  @ApiPropertyOptional()
+  updatedAt?: Date;
 }
