@@ -232,4 +232,112 @@ export class MailService {
       throw error;
     }
   }
+
+  /**
+   * Sends an account suspension notification email to the user.
+   */
+  async sendAccountSuspensionEmail(
+    toEmail: string,
+    username: string,
+    reason: string,
+  ): Promise<boolean> {
+    const htmlContent = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Account Status Notification - Centrix Games Rental</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #334155;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #f8fafc; padding: 40px 15px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width: 540px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);">
+          
+          <!-- Header Banner -->
+          <tr>
+            <td style="background-color: #0f172a; padding: 36px 24px; text-align: center;">
+              <h1 style="margin: 0; font-size: 24px; font-weight: 800; color: #ffffff; letter-spacing: -0.3px;">
+                Centrix Games Rental
+              </h1>
+              <p style="margin: 8px 0 0 0; font-size: 13px; color: #94a3b8; font-weight: 500;">
+                Account Status Notification
+              </p>
+            </td>
+          </tr>
+
+          <!-- Content Body -->
+          <tr>
+            <td style="padding: 36px 32px 28px 32px; text-align: left;">
+              <p style="margin: 0 0 20px 0; font-size: 15px; line-height: 1.6; color: #1e293b;">
+                Hello <strong>${username}</strong>,
+              </p>
+              <p style="margin: 0 0 24px 0; font-size: 15px; line-height: 1.6; color: #334155;">
+                We are writing to inform you that your account associated with <strong>${toEmail}</strong> has been suspended from the Centrix Rental Games platform.
+              </p>
+
+              <!-- Reason Box -->
+              <div style="margin: 24px 0; background-color: #fef2f2; border-left: 4px solid #ef4444; border-radius: 4px 8px 8px 4px; padding: 16px 20px;">
+                <div style="font-size: 14px; font-weight: 700; color: #991b1b; margin-bottom: 6px;">
+                  Reason for Suspension:
+                </div>
+                <div style="font-size: 14px; color: #b91c1c; line-height: 1.5;">
+                  ${reason}
+                </div>
+              </div>
+
+              <p style="margin: 0 0 16px 0; font-size: 14px; color: #64748b; line-height: 1.6;">
+                During this suspension period, active game key credentials and cloud save access will be revoked.
+              </p>
+
+              <p style="margin: 0 0 32px 0; font-size: 14px; color: #64748b; line-height: 1.6;">
+                If you believe this action was taken in error, you may reply directly to this email or contact support at <a href="mailto:support@centrix.games" style="color: #0f172a; font-weight: 600; text-decoration: underline;">support@centrix.games</a>.
+              </p>
+
+              <!-- Footer -->
+              <div style="border-top: 1px solid #f1f5f9; padding-top: 24px; text-align: center;">
+                <p style="margin: 0; font-size: 12px; color: #94a3b8;">
+                  &copy; ${new Date().getFullYear()} Centrix Games Rental Ltd. All rights reserved.
+                </p>
+              </div>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+    `;
+
+    try {
+      const { error } = await this.resend.emails.send({
+        from: this.fromAddress,
+        to: [toEmail],
+        subject: '[Centrix Games Rental] Account Status Notification - Suspended',
+        html: htmlContent,
+      });
+
+      if (error) {
+        this.logger.error(
+          `Failed to send account suspension email to ${toEmail}: ${error.message}`,
+        );
+        return false;
+      }
+
+      this.logger.log(
+        `Account suspension email sent successfully to ${toEmail}.`,
+      );
+      return true;
+    } catch (error) {
+      this.logger.error(
+        `Failed to send account suspension email to ${toEmail}.`,
+        error,
+      );
+      return false;
+    }
+  }
 }
+

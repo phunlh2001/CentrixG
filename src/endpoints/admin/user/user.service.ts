@@ -1,5 +1,11 @@
 import { PrismaService } from '@app/prisma/prisma.service';
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { MailService } from '@app/services/mail/mail.service';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import {
   BanUserDto,
   RoleUpdateType,
@@ -11,7 +17,12 @@ import { Role } from '@app/generated/prisma/enums';
 
 @Injectable()
 export class UserService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(UserService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly mailService: MailService,
+  ) {}
 
   /**
    * Retrieves all registered user accounts for Admin and Mod management.
@@ -46,7 +57,8 @@ export class UserService {
 
   /**
    * Bans or unbans a user account by setting isBlock and resonable.
-   * If user is blocked, revokes all active session tokens immediately.
+   * If user is blocked, revokes all active session tokens immediately
+   * and sends an account suspension email notification.
    */
   async banUser(dto: BanUserDto): Promise<UserAccountModel> {
     const user = await this.prisma.user.findUnique({
@@ -84,6 +96,19 @@ export class UserService {
       await this.prisma.token.deleteMany({
         where: { userId: dto.userId },
       });
+
+      try {
+        await this.mailService.sendAccountSuspensionEmail(
+          user.email,
+          user.username,
+          resonable ?? 'Account blocked by Admin/Mod',
+        );
+      } catch (mailError) {
+        this.logger.error(
+          `Failed to dispatch account suspension email for user ${user.id}:`,
+          mailError,
+        );
+      }
     }
 
     return {
