@@ -9,9 +9,10 @@ import { SEPAY_CONFIG } from '../../common/constants/sepay.constants';
 import {
   CreateOrderDto,
   CreateOrderResponseModel,
+  FirstPurchaseResponseModel,
   OrderStatusResponseModel,
 } from '@app/shared';
-import { Currency, PaymentStatus } from '../../prisma/prisma-client';
+import { Currency, PaymentStatus, Role } from '../../prisma/prisma-client';
 import { ConfigService } from '@nestjs/config';
 
 const DEFAULT_EXPIRED_SECONDS = 900; // 15 minutes default expiration
@@ -24,10 +25,33 @@ export class OrdersService {
   ) {}
 
   /**
+   * Checks whether the current user is eligible for the initial purchase offer (has 0 completed orders).
+   */
+  async checkFirstPurchase(userId: string): Promise<FirstPurchaseResponseModel> {
+    if (!userId) {
+      throw new UnauthorizedException(
+        'User must be logged in to check purchase status',
+      );
+    }
+
+    const completedOrdersCount = await this.prisma.order.count({
+      where: {
+        userId,
+        status: PaymentStatus.COMPLETED,
+      },
+    });
+
+    return {
+      isFirstPurchase: completedOrdersCount === 0,
+    };
+  }
+
+  /**
    * Generates or reuses a pending order for SePay payment.
    * Supports 1 to N products per order:
-   * - If an unexpired pending order for the same user, exact same products, and same amount exists, reuses it with remaining time left.
-   * - If order details changed (different products / amount) or order expired, hard-deletes the old order and creates a new one with 900s expiration.
+   * - If an unexpired pending order for the same user, exact same products, amount, and offerCode exists, reuses it with remaining time left.
+   * - If order details changed (different products / amount / offerCode) or order expired, hard-deletes the old order and creates a new one with 900s expiration.
+   * - If offerCode is provided, verifies user is a first-time buyer, applies 10% discount, and allocates 10% seller commission.
    */
   async createOrder(
     dto: CreateOrderDto,
@@ -63,9 +87,50 @@ export class OrdersService {
       );
     }
 
+    // 2. Validate offerCode if provided (applies only to first-time customer purchase)
+    let sellerId: string | null = null;
+    let appliedOfferCode: string | null = null;
+    let discountAmount = 0;
+    let commissionAmount = 0;
+    let finalOrderAmount = Number(dto.amount);
+
+    if (dto.offerCode) {
+      const normalizedCode = dto.offerCode.trim().toUpperCase();
+
+      // Check initial purchase
+      const { isFirstPurchase } = await this.checkFirstPurchase(userId);
+      if (!isFirstPurchase) {
+        throw new BadRequestException(
+          'Offer code discount is only applicable for your initial purchase',
+        );
+      }
+
+      // Look up seller by offerCode
+      const seller = await this.prisma.user.findUnique({
+        where: { offerCode: normalizedCode },
+      });
+
+      if (!seller || seller.role !== Role.SELLER || seller.isBlock) {
+        throw new BadRequestException('Invalid or inactive seller offer code');
+      }
+
+      // Prevent self-referral
+      if (seller.id === userId) {
+        throw new BadRequestException(
+          'You cannot use your own seller offer code',
+        );
+      }
+
+      sellerId = seller.id;
+      appliedOfferCode = seller.offerCode;
+      discountAmount = Math.round(finalOrderAmount * 0.1);
+      finalOrderAmount = finalOrderAmount - discountAmount;
+      commissionAmount = Math.round(Number(dto.amount) * 0.1);
+    }
+
     const now = new Date();
 
-    // 2. Check if user already has an active pending order
+    // 3. Check if user already has an active pending order
     const existingOrder = await this.prisma.order.findFirst({
       where: {
         userId,
@@ -87,19 +152,23 @@ export class OrdersService {
 
       if (remainingSeconds > 0) {
         const isSameAmount =
-          Number(existingOrder.amount) === Number(dto.amount);
+          Number(existingOrder.amount) === Number(finalOrderAmount);
+        const isSameOfferCode =
+          existingOrder.offerCode === appliedOfferCode;
         const existingIds = new Set(existingOrder.products.map((p) => p.id));
         const isSameProducts =
           existingIds.size === uniqueProductIds.length &&
           uniqueProductIds.every((id) => existingIds.has(id));
 
-        if (isSameAmount && isSameProducts) {
+        if (isSameAmount && isSameProducts && isSameOfferCode) {
           // Re-use existing unexpired matching order
           return this.buildCreateOrderResponse(
             existingOrder.orderCode,
             Number(existingOrder.amount),
             remainingSeconds,
             existingOrder.products.map((p) => p.id),
+            existingOrder.offerCode,
+            existingOrder.discountAmount ? Number(existingOrder.discountAmount) : null,
           );
         } else {
           // Details changed -> hard-delete old order and proceed to create new one
@@ -115,17 +184,21 @@ export class OrdersService {
       }
     }
 
-    // 3. Create new order with default 900s expiration
+    // 4. Create new order with default 900s expiration
     const orderCode = await this.generateUniqueOrderCode();
 
     const order = await this.prisma.order.create({
       data: {
         orderCode,
-        amount: dto.amount,
+        amount: finalOrderAmount,
         currency: Currency.VND,
         status: PaymentStatus.PENDING,
         expired: DEFAULT_EXPIRED_SECONDS,
         userId,
+        sellerId,
+        offerCode: appliedOfferCode,
+        discountAmount,
+        commissionAmount,
         products: {
           connect: uniqueProductIds.map((id) => ({ id })),
         },
@@ -142,6 +215,8 @@ export class OrdersService {
       Number(order.amount),
       DEFAULT_EXPIRED_SECONDS,
       order.products.map((p) => p.id),
+      order.offerCode,
+      order.discountAmount ? Number(order.discountAmount) : null,
     );
   }
 
@@ -193,6 +268,8 @@ export class OrdersService {
       Number(existingOrder.amount),
       remainingSeconds,
       existingOrder.products.map((p) => p.id),
+      existingOrder.offerCode,
+      existingOrder.discountAmount ? Number(existingOrder.discountAmount) : null,
     );
   }
 
@@ -221,6 +298,8 @@ export class OrdersService {
     amount: number,
     expiredSeconds: number,
     productIds: string[],
+    offerCode?: string | null,
+    discountAmount?: number | null,
   ): CreateOrderResponseModel {
     const accountNumber = this.config.getOrThrow<string>(
       SEPAY_CONFIG.accountNumber,
@@ -235,6 +314,8 @@ export class OrdersService {
     return {
       orderCode,
       amount,
+      offerCode: offerCode ?? null,
+      discountAmount: discountAmount ?? null,
       accountNumber,
       accountName,
       bankName,

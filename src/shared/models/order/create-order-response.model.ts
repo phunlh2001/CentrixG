@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateOrderResponseModel {
   @ApiProperty({ example: 'CG592489' })
@@ -6,6 +6,20 @@ export class CreateOrderResponseModel {
 
   @ApiProperty({ example: 100000 })
   amount: number;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    example: 'AAAA1111BBBB2222',
+    description: 'Applied seller offer code',
+  })
+  offerCode?: string | null;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    example: 10000,
+    description: 'Discount amount in VND applied to order',
+  })
+  discountAmount?: number | null;
 
   @ApiProperty({ example: '0111000373824' })
   accountNumber: string;

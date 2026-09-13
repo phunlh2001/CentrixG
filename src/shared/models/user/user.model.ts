@@ -20,6 +20,17 @@ export class UserModel {
   @ApiProperty({ enum: Role, example: Role.CUSTOMER })
   role: Role;
 
-  @ApiProperty({ example: false, description: 'True if account is restricted by administrator' })
+  @ApiProperty({
+    example: false,
+    description: 'True if account is restricted by administrator',
+  })
   isBlock: boolean;
+
+  @ApiProperty({
+    nullable: true,
+    example: 'AAAA1111BBBB2222',
+    description: 'Unique 12-character referral/offer code for SELLER accounts',
+    required: false,
+  })
+  offerCode?: string | null;
 }

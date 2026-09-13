@@ -14,6 +14,7 @@ import {
   UserAccountModel,
 } from '@app/shared';
 import { Role } from '@app/generated/prisma/enums';
+import { generateOfferCode } from '../../../common/utils/code-generator.util';
 
 @Injectable()
 export class UserService {
@@ -37,6 +38,7 @@ export class UserService {
         role: true,
         isBlock: true,
         resonable: true,
+        offerCode: true,
         createdAt: true,
       },
       orderBy: {
@@ -51,6 +53,7 @@ export class UserService {
       role: u.role,
       isBlock: u.isBlock,
       resonable: u.resonable,
+      offerCode: u.offerCode,
       createdAt: u.createdAt,
     }));
   }
@@ -87,6 +90,7 @@ export class UserService {
         role: true,
         isBlock: true,
         resonable: true,
+        offerCode: true,
         createdAt: true,
       },
     });
@@ -118,14 +122,15 @@ export class UserService {
       role: updatedUser.role,
       isBlock: updatedUser.isBlock,
       resonable: updatedUser.resonable,
+      offerCode: updatedUser.offerCode,
       createdAt: updatedUser.createdAt,
     };
   }
 
   /**
    * Promotes or demotes user role between CUSTOMER and SELLER.
-   * - type = 'promote': CUSTOMER -> SELLER
-   * - type = 'demote': SELLER -> CUSTOMER
+   * - type = 'promote': CUSTOMER -> SELLER (generates unique 12-character offerCode)
+   * - type = 'demote': SELLER -> CUSTOMER (nullifies offerCode)
    */
   async updateUserRole(
     dto: UpdateUserRoleDto,
@@ -144,6 +149,7 @@ export class UserService {
     }
 
     let targetRole: Role;
+    let offerCode: string | null = null;
 
     if (query.type === RoleUpdateType.PROMOTE) {
       if (user.role === Role.SELLER) {
@@ -153,6 +159,19 @@ export class UserService {
         throw new BadRequestException(`Cannot promote user with role ${user.role}`);
       }
       targetRole = Role.SELLER;
+
+      // Generate unique 12-character offerCode
+      let code = generateOfferCode();
+      let attempts = 0;
+      while (attempts < 10) {
+        const existing = await this.prisma.user.findUnique({
+          where: { offerCode: code },
+        });
+        if (!existing) break;
+        code = generateOfferCode();
+        attempts++;
+      }
+      offerCode = code;
     } else if (query.type === RoleUpdateType.DEMOTE) {
       if (user.role === Role.CUSTOMER) {
         throw new BadRequestException('User is already a CUSTOMER');
@@ -161,6 +180,7 @@ export class UserService {
         throw new BadRequestException(`Cannot demote user with role ${user.role}`);
       }
       targetRole = Role.CUSTOMER;
+      offerCode = null;
     } else {
       throw new BadRequestException(
         "Invalid action type. Expected 'promote' or 'demote'",
@@ -169,7 +189,10 @@ export class UserService {
 
     const updatedUser = await this.prisma.user.update({
       where: { id: dto.userId },
-      data: { role: targetRole },
+      data: {
+        role: targetRole,
+        offerCode,
+      },
       select: {
         id: true,
         email: true,
@@ -177,6 +200,7 @@ export class UserService {
         role: true,
         isBlock: true,
         resonable: true,
+        offerCode: true,
         createdAt: true,
       },
     });
@@ -188,6 +212,7 @@ export class UserService {
       role: updatedUser.role,
       isBlock: updatedUser.isBlock,
       resonable: updatedUser.resonable,
+      offerCode: updatedUser.offerCode,
       createdAt: updatedUser.createdAt,
     };
   }

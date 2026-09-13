@@ -24,6 +24,14 @@ export class UserAccountModel {
   })
   resonable: string | null;
 
+  @ApiProperty({
+    nullable: true,
+    example: 'AAAA1111BBBB2222',
+    description: 'Unique 12-character referral/offer code for SELLER accounts (null if not a seller)',
+    required: false,
+  })
+  offerCode?: string | null;
+
   @ApiProperty({ example: '2026-08-20T10:00:00.000Z' })
   createdAt: Date | string;
 }

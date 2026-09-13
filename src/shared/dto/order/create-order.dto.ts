@@ -1,8 +1,9 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   ArrayMinSize,
   IsArray,
   IsNumber,
+  IsOptional,
   IsPositive,
   IsString,
   IsUUID,
@@ -27,4 +28,12 @@ export class CreateOrderDto {
   @IsUUID('4', { each: true, message: 'Each product ID must be a valid UUID' })
   @IsString({ each: true })
   productIds: string[];
+
+  @ApiPropertyOptional({
+    example: 'AAAA1111BBBB2222',
+    description: 'Optional 12-character seller offer code for 10% discount on initial purchase',
+  })
+  @IsOptional()
+  @IsString()
+  offerCode?: string;
 }

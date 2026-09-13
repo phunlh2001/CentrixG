@@ -68,6 +68,13 @@ export class BillService {
               email: true,
             },
           },
+          seller: {
+            select: {
+              id: true,
+              username: true,
+              email: true,
+            },
+          },
           products: {
             select: {
               id: true,
@@ -100,8 +107,15 @@ export class BillService {
         email: order.user.email,
       };
 
-      // 4. REFERRER INFO (null if no referrer tracking)
-      const referrerInfo: BillReferrerInfoModel | null = null;
+      // 4. REFERRER INFO (populated if order was referred by a seller)
+      const referrerInfo: BillReferrerInfoModel | null = order.seller
+        ? {
+            id: order.seller.id,
+            username: order.seller.username,
+            email: order.seller.email,
+            code: order.offerCode,
+          }
+        : null;
 
       // 5. PAYMENT AMOUNT (VND / USD / CNY)
       const vndAmount = Number(order.amount);

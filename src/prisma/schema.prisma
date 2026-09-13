@@ -179,6 +179,7 @@ model User {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
   resonable         String?
+  offerCode         String?   @unique
 
   // Direct product purchases
   products Product[] @relation("UserProducts")
@@ -190,7 +191,10 @@ model User {
   loginLogs LoginLog[]
 
   // Customer orders
-  orders Order[]
+  orders Order[] @relation("CustomerOrders")
+
+  // Orders referred as a Seller
+  referredOrders Order[] @relation("SellerReferredOrders")
 
   @@index([isVerified, codeExpiresAt])
   @@map("users")
@@ -227,19 +231,26 @@ model LoginLog {
 
 /// Customer orders and payment transaction ledger for SePay payment processing.
 model Order {
-  id        String        @id @default(uuid())
-  orderCode String        @unique
-  amount    Decimal       @db.Decimal(18, 4)
-  currency  Currency      @default(VND)
-  status    PaymentStatus @default(PENDING)
-  expired   Int           @default(900) // Expiration duration in seconds (default: 900s / 15 minutes)
-  userId    String
-  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  products  Product[]     @relation("OrderProducts")
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
+  id               String        @id @default(uuid())
+  orderCode        String        @unique
+  amount           Decimal       @db.Decimal(18, 4)
+  currency         Currency      @default(VND)
+  status           PaymentStatus @default(PENDING)
+  expired          Int           @default(900) // Expiration duration in seconds (default: 900s / 15 minutes)
+  userId           String
+  user             User          @relation("CustomerOrders", fields: [userId], references: [id], onDelete: Cascade)
+  sellerId         String?
+  seller           User?         @relation("SellerReferredOrders", fields: [sellerId], references: [id], onDelete: SetNull)
+  offerCode        String?
+  discountAmount   Decimal?      @default(0) @db.Decimal(18, 4)
+  commissionAmount Decimal?      @default(0) @db.Decimal(18, 4)
+  products         Product[]     @relation("OrderProducts")
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
 
   @@index([orderCode])
   @@index([userId])
+  @@index([sellerId])
+  @@index([offerCode])
   @@map("orders")
 }

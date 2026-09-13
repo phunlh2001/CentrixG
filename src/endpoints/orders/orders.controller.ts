@@ -12,6 +12,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import {
   CreateOrderDto,
   CreateOrderResponseModel,
+  FirstPurchaseResponseModel,
   OrderStatusResponseModel,
 } from '@app/shared';
 import { OrdersService } from './orders.service';
@@ -47,6 +48,19 @@ export class OrdersController {
     @CurrentUser('id') userId: string,
   ): Promise<CreateOrderResponseModel | null> {
     return this.ordersService.getLatestOrder(userId);
+  }
+
+  @Get('first-purchase')
+  @ApiOperation({
+    summary:
+      'Check if current authenticated user is making their initial purchase (eligible for offerCode discount)',
+  })
+  @ApiOkResponse({ type: FirstPurchaseResponseModel })
+  @ApiUnauthorizedResponse({ description: 'Unauthorized or missing Bearer token' })
+  checkFirstPurchase(
+    @CurrentUser('id') userId: string,
+  ): Promise<FirstPurchaseResponseModel> {
+    return this.ordersService.checkFirstPurchase(userId);
   }
 
   @Get(':orderCode')
