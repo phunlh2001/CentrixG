@@ -180,6 +180,7 @@ model User {
   updatedAt         DateTime  @updatedAt
   resonable         String?
   offerCode         String?   @unique
+  totalEarn         Decimal   @default(0) @db.Decimal(18, 4) // Accumulated commission earnings in VND
 
   // Direct product purchases
   products Product[] @relation("UserProducts")

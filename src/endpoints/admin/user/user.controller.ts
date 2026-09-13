@@ -25,6 +25,7 @@ import { JwtAuthGuard } from '@app/common/guards/jwt-auth.guard';
 import { RolesGuard } from '@app/common/guards/roles.guard';
 import {
   BanUserDto,
+  GetAllUsersQueryDto,
   UpdateUserRoleDto,
   UpdateUserRoleQueryDto,
   UserAccountModel,
@@ -43,18 +44,20 @@ export class UserController {
   @ApiOperation({
     summary: 'Get all user accounts (ADMIN and MOD only)',
     description:
-      'Returns a list of all user accounts containing email, role, isBlock, resonable, and createdAt.',
+      'Returns a list of all user accounts containing email, role, isBlock, resonable, offerCode, totalEarn (VND), and createdAt. Supports optional month and year query parameters to calculate monthly seller commission.',
   })
   @ApiOkResponse({
     type: [UserAccountModel],
-    description: 'List of all registered user accounts',
+    description: 'List of all registered user accounts with seller earnings in VND',
   })
   @ApiUnauthorizedResponse({ description: 'Unauthorized or missing Bearer token' })
   @ApiForbiddenResponse({
     description: 'Forbidden: Requires ADMIN or MOD role',
   })
-  getAllUsers(): Promise<UserAccountModel[]> {
-    return this.userService.getAllUsers();
+  getAllUsers(
+    @Query() query?: GetAllUsersQueryDto,
+  ): Promise<UserAccountModel[]> {
+    return this.userService.getAllUsers(query);
   }
 
   @Patch()

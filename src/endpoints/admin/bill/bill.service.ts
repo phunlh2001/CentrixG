@@ -197,13 +197,29 @@ export class BillService {
       );
     }
 
-    // 3. Atomically update order status to REFUNDED and disconnect products from user library
+    // 3. Atomically update order status to REFUNDED, decrement seller commission, and disconnect products from user library
     await this.prisma.$transaction(async (tx) => {
       // Change order status to REFUNDED
       await tx.order.update({
         where: { id: order.id },
         data: { status: PaymentStatus.REFUNDED },
       });
+
+      // Deduct commission from seller if order had a commission
+      if (
+        order.sellerId &&
+        order.commissionAmount &&
+        Number(order.commissionAmount) > 0
+      ) {
+        await tx.user.update({
+          where: { id: order.sellerId },
+          data: {
+            totalEarn: {
+              decrement: order.commissionAmount,
+            },
+          },
+        });
+      }
 
       // Remove all products in the order from user's library
       if (order.products.length > 0) {

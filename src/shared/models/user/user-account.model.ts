@@ -32,6 +32,14 @@ export class UserAccountModel {
   })
   offerCode?: string | null;
 
+  @ApiProperty({
+    nullable: true,
+    example: 150000,
+    description: "Seller's total commission earned in VND (null if not a seller)",
+    required: false,
+  })
+  totalEarn?: number | null;
+
   @ApiProperty({ example: '2026-08-20T10:00:00.000Z' })
   createdAt: Date | string;
 }

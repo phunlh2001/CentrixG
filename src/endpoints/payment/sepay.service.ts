@@ -177,9 +177,35 @@ export class SepayService {
     orderId: string,
     orderCode: string,
   ): Promise<void> {
-    await this.prisma.order.update({
+    const order = await this.prisma.order.findUnique({
       where: { id: orderId },
-      data: { status: PaymentStatus.COMPLETED },
+      select: { sellerId: true, commissionAmount: true, status: true },
+    });
+
+    if (!order || order.status === PaymentStatus.COMPLETED) {
+      return;
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.order.update({
+        where: { id: orderId },
+        data: { status: PaymentStatus.COMPLETED },
+      });
+
+      if (
+        order.sellerId &&
+        order.commissionAmount &&
+        Number(order.commissionAmount) > 0
+      ) {
+        await tx.user.update({
+          where: { id: order.sellerId },
+          data: {
+            totalEarn: {
+              increment: order.commissionAmount,
+            },
+          },
+        });
+      }
     });
 
     this.logger.log(`Successfully completed order ${orderCode}`);

@@ -9,7 +9,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { User } from '../../prisma/prisma-client';
+import { Role, User } from '../../prisma/prisma-client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { JwtPayload } from '../../common/interfaces/authenticated-user.interface';
 import { generateOpaqueToken } from '../../common/utils/token.util';
@@ -304,6 +304,9 @@ export class AuthService {
       email: user.email,
       role: user.role,
       isBlock: user.isBlock,
+      offerCode: user.offerCode,
+      totalEarn:
+        user.role === Role.SELLER ? Number(user.totalEarn ?? 0) : null,
     };
   }
 

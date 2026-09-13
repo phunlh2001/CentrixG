@@ -8,12 +8,13 @@ import {
 } from '@nestjs/common';
 import {
   BanUserDto,
+  GetAllUsersQueryDto,
   RoleUpdateType,
   UpdateUserRoleDto,
   UpdateUserRoleQueryDto,
   UserAccountModel,
 } from '@app/shared';
-import { Role } from '@app/generated/prisma/enums';
+import { PaymentStatus, Role } from '@app/generated/prisma/enums';
 import { generateOfferCode } from '../../../common/utils/code-generator.util';
 
 @Injectable()
@@ -27,8 +28,10 @@ export class UserService {
 
   /**
    * Retrieves all registered user accounts for Admin and Mod management.
+   * If month (or year) is provided, calculates totalEarn commission for each seller within that specific timeframe.
+   * If month and year are null, empty, or omitted, responds with the full "totalEarn" without specific time boundaries.
    */
-  async getAllUsers(): Promise<UserAccountModel[]> {
+  async getAllUsers(query?: GetAllUsersQueryDto): Promise<UserAccountModel[]> {
     const users = await this.prisma.user.findMany({
       where: { role: { notIn: [Role.ADMIN, Role.MOD] } },
       select: {
@@ -39,6 +42,7 @@ export class UserService {
         isBlock: true,
         resonable: true,
         offerCode: true,
+        totalEarn: true,
         createdAt: true,
       },
       orderBy: {
@@ -46,16 +50,128 @@ export class UserService {
       },
     });
 
-    return users.map((u) => ({
-      id: u.id,
-      email: u.email,
-      username: u.username,
-      role: u.role,
-      isBlock: u.isBlock,
-      resonable: u.resonable,
-      offerCode: u.offerCode,
-      createdAt: u.createdAt,
-    }));
+    const sellerIds = users
+      .filter((u) => u.role === Role.SELLER)
+      .map((u) => u.id);
+
+    const hasMonth =
+      query?.month !== undefined &&
+      query?.month !== null &&
+      !isNaN(Number(query.month)) &&
+      Number(query.month) >= 1 &&
+      Number(query.month) <= 12;
+
+    const hasYear =
+      query?.year !== undefined &&
+      query?.year !== null &&
+      !isNaN(Number(query.year)) &&
+      Number(query.year) >= 2000;
+
+    // If month or year is specified, calculate commission earned within that specific timeframe
+    if (hasMonth || hasYear) {
+      let startDate: Date;
+      let endDate: Date;
+
+      if (hasMonth) {
+        const year = hasYear ? Number(query!.year) : new Date().getFullYear();
+        const month = Number(query!.month);
+        startDate = new Date(year, month - 1, 1, 0, 0, 0, 0);
+        endDate = new Date(year, month, 0, 23, 59, 59, 999);
+      } else {
+        const year = Number(query!.year);
+        startDate = new Date(year, 0, 1, 0, 0, 0, 0);
+        endDate = new Date(year, 11, 31, 23, 59, 59, 999);
+      }
+
+      const timeframeEarningsMap = new Map<string, number>();
+
+      if (sellerIds.length > 0) {
+        const timeframeOrders = await this.prisma.order.groupBy({
+          by: ['sellerId'],
+          where: {
+            sellerId: { in: sellerIds },
+            status: PaymentStatus.COMPLETED,
+            createdAt: {
+              gte: startDate,
+              lte: endDate,
+            },
+          },
+          _sum: {
+            commissionAmount: true,
+          },
+        });
+
+        for (const item of timeframeOrders) {
+          if (item.sellerId) {
+            timeframeEarningsMap.set(
+              item.sellerId,
+              Number(item._sum.commissionAmount ?? 0),
+            );
+          }
+        }
+      }
+
+      return users.map((u) => ({
+        id: u.id,
+        email: u.email,
+        username: u.username,
+        role: u.role,
+        isBlock: u.isBlock,
+        resonable: u.resonable,
+        offerCode: u.offerCode,
+        totalEarn:
+          u.role === Role.SELLER
+            ? (timeframeEarningsMap.get(u.id) ?? 0)
+            : null,
+        createdAt: u.createdAt,
+      }));
+    }
+
+    // When month and year are null, empty, or omitted: response full "totalEarn" without specific time
+    const allTimeEarningsMap = new Map<string, number>();
+
+    if (sellerIds.length > 0) {
+      const allTimeOrders = await this.prisma.order.groupBy({
+        by: ['sellerId'],
+        where: {
+          sellerId: { in: sellerIds },
+          status: PaymentStatus.COMPLETED,
+        },
+        _sum: {
+          commissionAmount: true,
+        },
+      });
+
+      for (const item of allTimeOrders) {
+        if (item.sellerId) {
+          allTimeEarningsMap.set(
+            item.sellerId,
+            Number(item._sum.commissionAmount ?? 0),
+          );
+        }
+      }
+    }
+
+    return users.map((u) => {
+      let totalEarn: number | null = null;
+      if (u.role === Role.SELLER) {
+        const userTotalEarn = Number(u.totalEarn ?? 0);
+        const orderTotalEarn = allTimeEarningsMap.get(u.id) ?? 0;
+        totalEarn = Math.max(userTotalEarn, orderTotalEarn);
+      }
+
+      return {
+        id: u.id,
+        email: u.email,
+        username: u.username,
+        role: u.role,
+        isBlock: u.isBlock,
+        resonable: u.resonable,
+        offerCode: u.offerCode,
+        totalEarn,
+        createdAt: u.createdAt,
+      };
+    });
   }
 
   /**
@@ -91,6 +207,7 @@ export class UserService {
         isBlock: true,
         resonable: true,
         offerCode: true,
+        totalEarn: true,
         createdAt: true,
       },
     });
@@ -123,14 +240,15 @@ export class UserService {
       isBlock: updatedUser.isBlock,
       resonable: updatedUser.resonable,
       offerCode: updatedUser.offerCode,
+      totalEarn: updatedUser.role === Role.SELLER ? Number(updatedUser.totalEarn) : null,
       createdAt: updatedUser.createdAt,
     };
   }
 
   /**
    * Promotes or demotes user role between CUSTOMER and SELLER.
-   * - type = 'promote': CUSTOMER -> SELLER (generates unique 12-character offerCode)
-   * - type = 'demote': SELLER -> CUSTOMER (nullifies offerCode)
+   * - type = 'promote': CUSTOMER -> SELLER (generates unique 12-character offerCode, totalEarn initialized to 0)
+   * - type = 'demote': SELLER -> CUSTOMER (nullifies offerCode, totalEarn reset to 0)
    */
   async updateUserRole(
     dto: UpdateUserRoleDto,
@@ -150,6 +268,7 @@ export class UserService {
 
     let targetRole: Role;
     let offerCode: string | null = null;
+    let totalEarn: number = 0;
 
     if (query.type === RoleUpdateType.PROMOTE) {
       if (user.role === Role.SELLER) {
@@ -172,6 +291,7 @@ export class UserService {
         attempts++;
       }
       offerCode = code;
+      totalEarn = 0;
     } else if (query.type === RoleUpdateType.DEMOTE) {
       if (user.role === Role.CUSTOMER) {
         throw new BadRequestException('User is already a CUSTOMER');
@@ -181,6 +301,7 @@ export class UserService {
       }
       targetRole = Role.CUSTOMER;
       offerCode = null;
+      totalEarn = 0;
     } else {
       throw new BadRequestException(
         "Invalid action type. Expected 'promote' or 'demote'",
@@ -192,6 +313,7 @@ export class UserService {
       data: {
         role: targetRole,
         offerCode,
+        totalEarn,
       },
       select: {
         id: true,
@@ -201,6 +323,7 @@ export class UserService {
         isBlock: true,
         resonable: true,
         offerCode: true,
+        totalEarn: true,
         createdAt: true,
       },
     });
@@ -213,6 +336,7 @@ export class UserService {
       isBlock: updatedUser.isBlock,
       resonable: updatedUser.resonable,
       offerCode: updatedUser.offerCode,
+      totalEarn: updatedUser.role === Role.SELLER ? Number(updatedUser.totalEarn) : null,
       createdAt: updatedUser.createdAt,
     };
   }

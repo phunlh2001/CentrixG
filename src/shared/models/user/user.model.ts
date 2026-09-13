@@ -33,4 +33,12 @@ export class UserModel {
     required: false,
   })
   offerCode?: string | null;
+
+  @ApiProperty({
+    nullable: true,
+    example: 150000,
+    description: "Seller's total commission earned in VND",
+    required: false,
+  })
+  totalEarn?: number | null;
 }
