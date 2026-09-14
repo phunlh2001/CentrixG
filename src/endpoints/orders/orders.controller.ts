@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiCreatedResponse,
@@ -13,6 +13,7 @@ import {
   CreateOrderDto,
   CreateOrderResponseModel,
   FirstPurchaseResponseModel,
+  GetLatestOrderQueryDto,
   OrderStatusResponseModel,
 } from '@app/shared';
 import { OrdersService } from './orders.service';
@@ -46,8 +47,23 @@ export class OrdersController {
   @ApiUnauthorizedResponse({ description: 'Unauthorized or missing Bearer token' })
   getLatestOrder(
     @CurrentUser('id') userId: string,
+    @Query() query?: GetLatestOrderQueryDto,
   ): Promise<CreateOrderResponseModel | null> {
-    return this.ordersService.getLatestOrder(userId);
+    return this.ordersService.getLatestOrder(userId, query);
+  }
+
+  @Post('latest')
+  @ApiOperation({
+    summary:
+      'Get latest active pending order for current user with remaining expiration time in seconds via POST body (requires authentication)',
+  })
+  @ApiOkResponse({ type: CreateOrderResponseModel })
+  @ApiUnauthorizedResponse({ description: 'Unauthorized or missing Bearer token' })
+  getLatestOrderPost(
+    @CurrentUser('id') userId: string,
+    @Body() body?: GetLatestOrderQueryDto,
+  ): Promise<CreateOrderResponseModel | null> {
+    return this.ordersService.getLatestOrder(userId, body);
   }
 
   @Get('first-purchase')

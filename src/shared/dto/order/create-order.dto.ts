@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
 import {
   ArrayMinSize,
   IsArray,
@@ -34,6 +35,12 @@ export class CreateOrderDto {
     description: 'Optional 12-character seller offer code for 10% discount on initial purchase',
   })
   @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string' && value.trim() !== ''
+      ? value.trim().toUpperCase()
+      : undefined,
+  )
   @IsString()
   offerCode?: string;
 }
+

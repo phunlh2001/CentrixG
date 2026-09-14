@@ -10,8 +10,10 @@ import {
   CreateOrderDto,
   CreateOrderResponseModel,
   FirstPurchaseResponseModel,
+  GetLatestOrderQueryDto,
   OrderStatusResponseModel,
 } from '@app/shared';
+
 import { Currency, PaymentStatus, Role } from '../../prisma/prisma-client';
 import { ConfigService } from '@nestjs/config';
 
@@ -94,9 +96,12 @@ export class OrdersService {
     let commissionAmount = 0;
     let finalOrderAmount = Number(dto.amount);
 
-    if (dto.offerCode) {
-      const normalizedCode = dto.offerCode.trim().toUpperCase();
+    const rawCode =
+      typeof dto.offerCode === 'string' && dto.offerCode.trim() !== ''
+        ? dto.offerCode.trim().toUpperCase()
+        : null;
 
+    if (rawCode) {
       // Check initial purchase
       const { isFirstPurchase } = await this.checkFirstPurchase(userId);
       if (!isFirstPurchase) {
@@ -107,7 +112,7 @@ export class OrdersService {
 
       // Look up seller by offerCode
       const seller = await this.prisma.user.findUnique({
-        where: { offerCode: normalizedCode },
+        where: { offerCode: rawCode },
       });
 
       if (!seller || seller.role !== Role.SELLER || seller.isBlock) {
@@ -123,10 +128,11 @@ export class OrdersService {
 
       sellerId = seller.id;
       appliedOfferCode = seller.offerCode;
-      discountAmount = Math.round(finalOrderAmount * 0.1);
-      finalOrderAmount = finalOrderAmount - discountAmount;
+      discountAmount = Math.round(Number(dto.amount) * 0.1);
+      finalOrderAmount = Number(dto.amount) - discountAmount;
       commissionAmount = Math.round(Number(dto.amount) * 0.1);
     }
+
 
     const now = new Date();
 
@@ -184,7 +190,14 @@ export class OrdersService {
       }
     }
 
-    // 4. Create new order with default 900s expiration
+    // 4. Clean up any stale pending orders for this user to ensure only 1 PENDING order exists at a time
+    await this.prisma.order.deleteMany({
+      where: {
+        userId,
+        status: PaymentStatus.PENDING,
+      },
+    });
+
     const orderCode = await this.generateUniqueOrderCode();
 
     const order = await this.prisma.order.create({
@@ -222,9 +235,12 @@ export class OrdersService {
 
   /**
    * Fetches latest active pending order for current user and calculates remaining time left.
+   * If query parameters (totalAmount, length) are provided, verifies that the existing pending order
+   * matches the expected total amount and item count. Returns null if there is any mismatch.
    */
   async getLatestOrder(
     userId: string,
+    query?: GetLatestOrderQueryDto,
   ): Promise<CreateOrderResponseModel | null> {
     if (!userId) {
       throw new UnauthorizedException(
@@ -261,6 +277,32 @@ export class OrdersService {
         where: { id: existingOrder.id },
       });
       return null;
+    }
+
+    // Verify against query params if provided: total amount and length of items
+    const expectedAmount = query?.totalAmount;
+    const expectedLength = query?.length;
+
+    if (expectedLength !== undefined && expectedLength !== null) {
+      const orderProductsLength = existingOrder.products?.length ?? 0;
+      if (orderProductsLength !== Number(expectedLength)) {
+        return null;
+      }
+    }
+
+    if (expectedAmount !== undefined && expectedAmount !== null) {
+      const orderPayableAmount = Number(existingOrder.amount);
+      const orderPreDiscountAmount =
+        orderPayableAmount + Number(existingOrder.discountAmount ?? 0);
+
+      const targetAmount = Number(expectedAmount);
+      // Matches either payable amount (discounted) or base pre-discount amount
+      if (
+        orderPayableAmount !== targetAmount &&
+        orderPreDiscountAmount !== targetAmount
+      ) {
+        return null;
+      }
     }
 
     return this.buildCreateOrderResponse(
