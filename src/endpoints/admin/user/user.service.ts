@@ -267,8 +267,8 @@ export class UserService {
     }
 
     let targetRole: Role;
-    let offerCode: string | null = null;
-    let totalEarn: number = 0;
+    let offerCode: string | null = user.offerCode;
+    let totalEarn = user.totalEarn;
 
     if (query.type === RoleUpdateType.PROMOTE) {
       if (user.role === Role.SELLER) {
@@ -279,19 +279,21 @@ export class UserService {
       }
       targetRole = Role.SELLER;
 
-      // Generate unique 12-character offerCode
-      let code = generateOfferCode();
-      let attempts = 0;
-      while (attempts < 10) {
-        const existing = await this.prisma.user.findUnique({
-          where: { offerCode: code },
-        });
-        if (!existing) break;
-        code = generateOfferCode();
-        attempts++;
+      // If user already had an offerCode from previous seller tenure, reuse it!
+      // Otherwise, generate a unique 12-character offerCode
+      if (!offerCode) {
+        let code = generateOfferCode();
+        let attempts = 0;
+        while (attempts < 10) {
+          const existing = await this.prisma.user.findUnique({
+            where: { offerCode: code },
+          });
+          if (!existing) break;
+          code = generateOfferCode();
+          attempts++;
+        }
+        offerCode = code;
       }
-      offerCode = code;
-      totalEarn = 0;
     } else if (query.type === RoleUpdateType.DEMOTE) {
       if (user.role === Role.CUSTOMER) {
         throw new BadRequestException('User is already a CUSTOMER');
@@ -300,13 +302,14 @@ export class UserService {
         throw new BadRequestException(`Cannot demote user with role ${user.role}`);
       }
       targetRole = Role.CUSTOMER;
-      offerCode = null;
-      totalEarn = 0;
+      // Do NOT nullify offerCode: preserve user.offerCode in database so it is retained!
+      offerCode = user.offerCode;
     } else {
       throw new BadRequestException(
         "Invalid action type. Expected 'promote' or 'demote'",
       );
     }
+
 
     const updatedUser = await this.prisma.user.update({
       where: { id: dto.userId },

@@ -27,7 +27,8 @@ export class OrdersService {
   ) {}
 
   /**
-   * Checks whether the current user is eligible for the initial purchase offer (has 0 completed orders).
+   * Checks whether the current user is eligible for the initial purchase offer (has 0 completed orders),
+   * and returns any previously bound referral offerCode.
    */
   async checkFirstPurchase(userId: string): Promise<FirstPurchaseResponseModel> {
     if (!userId) {
@@ -36,15 +37,22 @@ export class OrdersService {
       );
     }
 
-    const completedOrdersCount = await this.prisma.order.count({
-      where: {
-        userId,
-        status: PaymentStatus.COMPLETED,
-      },
-    });
+    const [completedOrdersCount, user] = await Promise.all([
+      this.prisma.order.count({
+        where: {
+          userId,
+          status: PaymentStatus.COMPLETED,
+        },
+      }),
+      this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { usedOfferCode: true },
+      }),
+    ]);
 
     return {
       isFirstPurchase: completedOrdersCount === 0,
+      usedOfferCode: user?.usedOfferCode ?? null,
     };
   }
 
@@ -53,7 +61,11 @@ export class OrdersService {
    * Supports 1 to N products per order:
    * - If an unexpired pending order for the same user, exact same products, amount, and offerCode exists, reuses it with remaining time left.
    * - If order details changed (different products / amount / offerCode) or order expired, hard-deletes the old order and creates a new one with 900s expiration.
-   * - If offerCode is provided, verifies user is a first-time buyer, applies 10% discount, and allocates 10% seller commission.
+   * - If offerCode is provided:
+   *   + Customer receives 10% discount on their first order (subsequent orders pay full price).
+   *   + Even if the referring seller is demoted, customer still receives 10% discount on their first order.
+   *   + The referring seller receives 10% commission on the total order value only if currently active.
+   *   + Bound referral offerCode is permanently saved to customer profile for automatic future reuse.
    */
   async createOrder(
     dto: CreateOrderDto,
@@ -89,49 +101,86 @@ export class OrdersService {
       );
     }
 
-    // 2. Validate offerCode if provided (applies only to first-time customer purchase)
+    // 2. Fetch customer and determine referral offerCode
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, usedOfferCode: true },
+    });
+
     let sellerId: string | null = null;
     let appliedOfferCode: string | null = null;
     let discountAmount = 0;
     let commissionAmount = 0;
     let finalOrderAmount = Number(dto.amount);
 
-    const rawCode =
+    const manualCode =
       typeof dto.offerCode === 'string' && dto.offerCode.trim() !== ''
         ? dto.offerCode.trim().toUpperCase()
         : null;
 
-    if (rawCode) {
-      // Check initial purchase
-      const { isFirstPurchase } = await this.checkFirstPurchase(userId);
-      if (!isFirstPurchase) {
-        throw new BadRequestException(
-          'Offer code discount is only applicable for your initial purchase',
-        );
-      }
+    // Permanent referral binding: once a user has a usedOfferCode, always use that code (no switching)
+    const targetCode = user?.usedOfferCode ?? manualCode;
 
-      // Look up seller by offerCode
+    if (targetCode) {
       const seller = await this.prisma.user.findUnique({
-        where: { offerCode: rawCode },
+        where: { offerCode: targetCode },
       });
 
-      if (!seller || seller.role !== Role.SELLER || seller.isBlock) {
-        throw new BadRequestException('Invalid or inactive seller offer code');
-      }
+      if (!seller) {
+        if (manualCode && !user?.usedOfferCode) {
+          throw new BadRequestException('Invalid offer code');
+        }
+      } else if (seller.id === userId) {
+        if (manualCode && !user?.usedOfferCode) {
+          throw new BadRequestException('You cannot use your own seller offer code');
+        }
+      } else {
+        appliedOfferCode = seller.offerCode;
+        const isSellerActive = seller.role === Role.SELLER && !seller.isBlock;
 
-      // Prevent self-referral
-      if (seller.id === userId) {
-        throw new BadRequestException(
-          'You cannot use your own seller offer code',
-        );
-      }
+        // Check if customer is making their initial purchase
+        const { isFirstPurchase } = await this.checkFirstPurchase(userId);
 
-      sellerId = seller.id;
-      appliedOfferCode = seller.offerCode;
-      discountAmount = Math.round(Number(dto.amount) * 0.1);
-      finalOrderAmount = Number(dto.amount) - discountAmount;
-      commissionAmount = Math.round(Number(dto.amount) * 0.1);
+        if (isFirstPurchase) {
+          // Customer always receives 10% discount for their first order (even if seller is demoted)
+          discountAmount = Math.round(Number(dto.amount) * 0.1);
+          finalOrderAmount = Number(dto.amount) - discountAmount;
+
+          // Seller only receives 10% commission if active (not demoted and not blocked)
+          if (isSellerActive) {
+            sellerId = seller.id;
+            commissionAmount = Math.round(Number(dto.amount) * 0.1);
+          }
+
+          // Permanently save usedOfferCode to customer account
+          if (!user?.usedOfferCode && appliedOfferCode) {
+            await this.prisma.user.update({
+              where: { id: userId },
+              data: { usedOfferCode: appliedOfferCode },
+            });
+          }
+        } else {
+          // Subsequent order: 0% discount on order itself (customer pays full price)
+          discountAmount = 0;
+          finalOrderAmount = Number(dto.amount);
+
+          // Seller receives 10% commission on the total order value if active
+          if (isSellerActive) {
+            sellerId = seller.id;
+            commissionAmount = Math.round(Number(dto.amount) * 0.1);
+          }
+
+          // Ensure usedOfferCode is bound if not already present
+          if (!user?.usedOfferCode && appliedOfferCode) {
+            await this.prisma.user.update({
+              where: { id: userId },
+              data: { usedOfferCode: appliedOfferCode },
+            });
+          }
+        }
+      }
     }
+
 
 
     const now = new Date();
