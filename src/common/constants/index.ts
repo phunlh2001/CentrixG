@@ -11,6 +11,12 @@ export const CONFIG_ENV = {
   supabasePublishableKey: 'SUPABASE_PUBLISHABLE_KEY',
   supabaseSecretKey: 'SUPABASE_SECRET_KEY',
   supabaseManifestBucket: 'SUPABASE_MANIFEST_BUCKET',
+  r2Endpoint: 'R2_ENDPOINT',
+  r2AccessKeyId: 'R2_ACCESS_KEY_ID',
+  r2SecretAccessKey: 'R2_SECRET_ACCESS_KEY',
+  r2BucketName: 'R2_BUCKET_NAME',
+  r2AccessTokenValue: 'R2_ACCESS_TOKEN_VALUE',
+  r2PublicDomain: 'R2_PUBLIC_DOMAIN',
   mainSite: 'MAIN_SITE',
   adminSite: 'ADMIN_SITE',
 };
