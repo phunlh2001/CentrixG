@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { CONFIG_ENV } from '../../common/constants';
@@ -145,9 +145,74 @@ export class SupabaseStorageService {
   }
 
   /**
+   * Downloads a manifest file as a Buffer from Supabase Storage for in-memory extraction or processing.
+   */
+  async downloadManifestBuffer(
+    appId: number,
+    manifestUrl?: string,
+  ): Promise<Buffer> {
+    if (!this.supabase) {
+      throw new BadRequestException('Supabase Storage is not configured.');
+    }
+
+    const filePath = await this.resolveObjectPath(appId, manifestUrl);
+
+    const { data, error } = await this.supabase.storage
+      .from(this.bucketName)
+      .download(filePath);
+
+    if (error || !data) {
+      this.logger.error(
+        `Failed to download manifest for AppID ${appId} from Supabase: ${error?.message}`,
+      );
+      throw new BadRequestException(
+        `Failed to download manifest from Supabase: ${error?.message || 'Empty file'}`,
+      );
+    }
+
+    const arrayBuffer = await data.arrayBuffer();
+    const fileBuffer = Buffer.from(arrayBuffer);
+
+    this.logger.log(
+      `Successfully downloaded manifest buffer (${fileBuffer.length} bytes) for AppID ${appId} from Supabase [${filePath}]`,
+    );
+
+    return fileBuffer;
+  }
+
+  /**
+   * Generates a download URL (public or signed) for a manifest file in Supabase Storage.
+   */
+  async getManifestDownloadUrl(
+    appId: number,
+    manifestUrl?: string,
+    expiresInSeconds = 3600,
+  ): Promise<string> {
+    if (!this.supabase) {
+      throw new BadRequestException('Supabase Storage is not configured.');
+    }
+
+    const filePath = await this.resolveObjectPath(appId, manifestUrl);
+
+    const { data: signedData, error: signedError } = await this.supabase.storage
+      .from(this.bucketName)
+      .createSignedUrl(filePath, expiresInSeconds);
+
+    if (!signedError && signedData?.signedUrl) {
+      return signedData.signedUrl;
+    }
+
+    const { data: publicUrlData } = this.supabase.storage
+      .from(this.bucketName)
+      .getPublicUrl(filePath);
+
+    return publicUrlData.publicUrl;
+  }
+
+  /**
    * Extracts relative storage path inside bucket from a full Supabase public URL or path string.
    */
-  private extractStoragePath(urlOrPath: string): string | null {
+  extractStoragePath(urlOrPath: string): string | null {
     if (!urlOrPath) return null;
 
     if (!urlOrPath.startsWith('http://') && !urlOrPath.startsWith('https://')) {
@@ -171,6 +236,50 @@ export class SupabaseStorageService {
     } catch {
       return null;
     }
+  }
+
+  /**
+   * Resolves object storage path for an AppID from manifestUrl or latest object under `${appId}`.
+   */
+  private async resolveObjectPath(
+    appId: number,
+    manifestUrl?: string,
+  ): Promise<string> {
+    if (!this.supabase) {
+      throw new BadRequestException('Supabase Storage is not configured.');
+    }
+
+    if (manifestUrl) {
+      const extracted = this.extractStoragePath(manifestUrl);
+      if (extracted) return extracted;
+    }
+
+    const { data: fileList, error: listError } = await this.supabase.storage
+      .from(this.bucketName)
+      .list(`${appId}`);
+
+    if (listError || !fileList || fileList.length === 0) {
+      throw new NotFoundException(
+        `No manifest file found in Supabase for Steam AppID ${appId}`,
+      );
+    }
+
+    const sorted = fileList
+      .filter((file) => file.name)
+      .sort(
+        (a, b) =>
+          new Date(b.created_at || 0).getTime() -
+          new Date(a.created_at || 0).getTime(),
+      );
+
+    const latest = sorted[0];
+    if (!latest || !latest.name) {
+      throw new NotFoundException(
+        `No valid manifest file found in Supabase for Steam AppID ${appId}`,
+      );
+    }
+
+    return `${appId}/${latest.name}`;
   }
 }
 

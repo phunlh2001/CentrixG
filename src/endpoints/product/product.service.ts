@@ -25,6 +25,7 @@ import {
 } from "@app/shared";
 import { MessageResponseDto } from "../../common/dto/message-response.dto";
 import { SupabaseStorageService } from "@app/services/supabase/supabase-storage.service";
+import { R2StorageService } from "@app/services/r2/r2-storage.service";
 
 export interface PaginatedResult<T> {
   items: T[];
@@ -64,6 +65,7 @@ export class ProductService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly supabaseStorageService: SupabaseStorageService,
+    private readonly r2StorageService: R2StorageService,
   ) {}
 
   /**
@@ -365,13 +367,19 @@ export class ProductService {
 
     const hasManifest = product.manifests && product.manifests.length > 0;
 
-    // If product has manifest, clean up storage files in Supabase bucket
+    // If product has manifest, clean up storage files in Supabase and R2 buckets
     if (hasManifest) {
       for (const manifest of product.manifests) {
-        await this.supabaseStorageService.deleteManifestsByAppId(
-          product.appId,
-          manifest.manifestUrl,
-        );
+        await Promise.allSettled([
+          this.supabaseStorageService.deleteManifestsByAppId(
+            product.appId,
+            manifest.manifestUrl,
+          ),
+          this.r2StorageService.deleteManifestsByAppId(
+            product.appId,
+            manifest.manifestUrl,
+          ),
+        ]);
       }
     }
 
@@ -422,14 +430,20 @@ export class ProductService {
       );
     }
 
-    // 2. Clean up storage files in Supabase bucket for products that have manifests
+    // 2. Clean up storage files in Supabase and R2 buckets for products that have manifests
     for (const product of existingProducts) {
       if (product.manifests && product.manifests.length > 0) {
         for (const manifest of product.manifests) {
-          await this.supabaseStorageService.deleteManifestsByAppId(
-            product.appId,
-            manifest.manifestUrl,
-          );
+          await Promise.allSettled([
+            this.supabaseStorageService.deleteManifestsByAppId(
+              product.appId,
+              manifest.manifestUrl,
+            ),
+            this.r2StorageService.deleteManifestsByAppId(
+              product.appId,
+              manifest.manifestUrl,
+            ),
+          ]);
         }
       }
     }

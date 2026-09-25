@@ -1,5 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString } from 'class-validator';
+import { IsEnum, IsOptional, IsString } from 'class-validator';
+import { StorageProvider } from '../../enums/storage-provider.enum';
 
 export class UpdateManifestDto {
   @ApiPropertyOptional({
@@ -9,4 +10,13 @@ export class UpdateManifestDto {
   @IsOptional()
   @IsString()
   manifestUrl?: string;
+
+  @ApiPropertyOptional({
+    enum: StorageProvider,
+    example: StorageProvider.R2,
+    description: 'Storage provider associated with manifest file (r2 or supabase)',
+  })
+  @IsOptional()
+  @IsEnum(StorageProvider)
+  storage?: StorageProvider;
 }

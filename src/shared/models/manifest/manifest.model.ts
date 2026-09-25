@@ -1,4 +1,5 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { StorageProvider } from '../../enums/storage-provider.enum';
 
 export class ManifestModel {
   @ApiProperty({ example: '9c1f...uuid' })
@@ -16,6 +17,13 @@ export class ManifestModel {
     description: 'URL to download or access manifest file',
   })
   manifestUrl: string | null;
+
+  @ApiPropertyOptional({
+    enum: StorageProvider,
+    example: StorageProvider.R2,
+    description: 'Storage provider where the manifest is stored (r2 or supabase)',
+  })
+  storage?: StorageProvider;
 
   @ApiProperty()
   createdAt: Date;

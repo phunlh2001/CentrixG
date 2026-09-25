@@ -52,7 +52,7 @@ export class ManifestController {
   @ApiConsumes('multipart/form-data')
   @ApiOperation({
     summary:
-      'Upload a manifest .zip file for AppID, save to Supabase Storage, and link manifestUrl to product',
+      'Upload a manifest .zip file for AppID, save to Cloudflare R2 Storage (default), and link manifestUrl to product',
   })
   @ApiBody({
     schema: {
@@ -74,14 +74,18 @@ export class ManifestController {
     @UploadedFile() file?: Express.Multer.File,
   ): Promise<ManifestModel> {
     if (!file) {
-      throw new BadRequestException('No file provided in form-data field "file"');
+      throw new BadRequestException(
+        'No file provided in form-data field "file"',
+      );
     }
 
     if (
       !file.originalname.toLowerCase().endsWith('.zip') &&
-      !['application/zip', 'application/x-zip-compressed', 'application/x-compressed'].includes(
-        file.mimetype,
-      )
+      ![
+        'application/zip',
+        'application/x-zip-compressed',
+        'application/x-compressed',
+      ].includes(file.mimetype)
     ) {
       throw new BadRequestException('Uploaded file must be a .zip file');
     }
