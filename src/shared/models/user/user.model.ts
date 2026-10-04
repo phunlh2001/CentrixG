@@ -28,14 +28,6 @@ export class UserModel {
 
   @ApiProperty({
     nullable: true,
-    example: 'AAAA1111BBBB2222',
-    description: 'Unique 12-character referral/offer code for SELLER accounts',
-    required: false,
-  })
-  offerCode?: string | null;
-
-  @ApiProperty({
-    nullable: true,
     example: 150000,
     description: "Seller's total commission earned in VND",
     required: false,

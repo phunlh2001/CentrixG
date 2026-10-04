@@ -7,6 +7,7 @@ import {
 import { PrismaService } from '../../prisma/prisma.service';
 import { SEPAY_CONFIG } from '../../common/constants/sepay.constants';
 import {
+  AffiliateStatus,
   CreateOrderDto,
   CreateOrderResponseModel,
   FirstPurchaseResponseModel,
@@ -122,21 +123,25 @@ export class OrdersService {
     const targetCode = user?.usedOfferCode ?? manualCode;
 
     if (targetCode) {
-      const seller = await this.prisma.user.findUnique({
+      const affiliate = await this.prisma.affiliate.findUnique({
         where: { offerCode: targetCode },
+        include: { user: true },
       });
 
-      if (!seller) {
+      if (!affiliate) {
         if (manualCode && !user?.usedOfferCode) {
           throw new BadRequestException('Invalid offer code');
         }
-      } else if (seller.id === userId) {
+      } else if (affiliate.userId === userId) {
         if (manualCode && !user?.usedOfferCode) {
           throw new BadRequestException('You cannot use your own seller offer code');
         }
       } else {
-        appliedOfferCode = seller.offerCode;
-        const isSellerActive = seller.role === Role.SELLER && !seller.isBlock;
+        appliedOfferCode = affiliate.offerCode;
+        const isSellerActive =
+          affiliate.status === AffiliateStatus.APPROVED &&
+          affiliate.user.role === Role.SELLER &&
+          !affiliate.user.isBlock;
 
         // Check if customer is making their initial purchase
         const { isFirstPurchase } = await this.checkFirstPurchase(userId);
@@ -148,7 +153,7 @@ export class OrdersService {
 
           // Seller only receives 10% commission if active (not demoted and not blocked)
           if (isSellerActive) {
-            sellerId = seller.id;
+            sellerId = affiliate.userId;
             commissionAmount = Math.round(Number(dto.amount) * 0.1);
           }
 
@@ -166,7 +171,7 @@ export class OrdersService {
 
           // Seller receives 10% commission on the total order value if active
           if (isSellerActive) {
-            sellerId = seller.id;
+            sellerId = affiliate.userId;
             commissionAmount = Math.round(Number(dto.amount) * 0.1);
           }
 

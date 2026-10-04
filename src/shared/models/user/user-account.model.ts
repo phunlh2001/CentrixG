@@ -26,8 +26,8 @@ export class UserAccountModel {
 
   @ApiProperty({
     nullable: true,
-    example: 'AAAA1111BBBB2222',
-    description: 'Unique 12-character referral/offer code for SELLER accounts (null if not a seller)',
+    example: 'AFFILIATE99',
+    description: "Seller's affiliate offer code (null if not a seller or no code)",
     required: false,
   })
   offerCode?: string | null;

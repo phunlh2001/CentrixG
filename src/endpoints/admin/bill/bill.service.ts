@@ -205,14 +205,14 @@ export class BillService {
         data: { status: PaymentStatus.REFUNDED },
       });
 
-      // Deduct commission from seller if order had a commission
+      // Deduct commission from affiliate partner if order had a commission
       if (
         order.sellerId &&
         order.commissionAmount &&
         Number(order.commissionAmount) > 0
       ) {
-        await tx.user.update({
-          where: { id: order.sellerId },
+        await tx.affiliate.updateMany({
+          where: { userId: order.sellerId },
           data: {
             totalEarn: {
               decrement: order.commissionAmount,

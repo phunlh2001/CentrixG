@@ -24,6 +24,8 @@ import { OverviewModule } from './endpoints/admin/overview/overview.module';
 import { CategoryModule } from './endpoints/admin/category/category.module';
 import { BillModule } from './endpoints/admin/bill/bill.module';
 import { UserModule } from './endpoints/admin/user/user.module';
+import { AffiliateModule } from './endpoints/affiliate/affiliate.module';
+import { AdminAffiliateModule } from './endpoints/admin/affiliate/admin-affiliate.module';
 
 @Module({
   imports: [
@@ -43,6 +45,8 @@ import { UserModule } from './endpoints/admin/user/user.module';
     OverviewModule,
     CategoryModule,
     BillModule,
+    AffiliateModule,
+    AdminAffiliateModule,
   ],
   controllers: [AppController],
   providers: [

@@ -15,7 +15,6 @@ import {
   UserAccountModel,
 } from '@app/shared';
 import { PaymentStatus, Role } from '@app/generated/prisma/enums';
-import { generateOfferCode } from '../../../common/utils/code-generator.util';
 
 @Injectable()
 export class UserService {
@@ -41,8 +40,12 @@ export class UserService {
         role: true,
         isBlock: true,
         resonable: true,
-        offerCode: true,
-        totalEarn: true,
+        affiliate: {
+          select: {
+            offerCode: true,
+            totalEarn: true,
+          },
+        },
         createdAt: true,
       },
       orderBy: {
@@ -118,7 +121,7 @@ export class UserService {
         role: u.role,
         isBlock: u.isBlock,
         resonable: u.resonable,
-        offerCode: u.offerCode,
+        offerCode: u.affiliate?.offerCode ?? null,
         totalEarn:
           u.role === Role.SELLER
             ? (timeframeEarningsMap.get(u.id) ?? 0)
@@ -155,9 +158,9 @@ export class UserService {
     return users.map((u) => {
       let totalEarn: number | null = null;
       if (u.role === Role.SELLER) {
-        const userTotalEarn = Number(u.totalEarn ?? 0);
+        const affiliateTotalEarn = Number(u.affiliate?.totalEarn ?? 0);
         const orderTotalEarn = allTimeEarningsMap.get(u.id) ?? 0;
-        totalEarn = Math.max(userTotalEarn, orderTotalEarn);
+        totalEarn = Math.max(affiliateTotalEarn, orderTotalEarn);
       }
 
       return {
@@ -167,7 +170,7 @@ export class UserService {
         role: u.role,
         isBlock: u.isBlock,
         resonable: u.resonable,
-        offerCode: u.offerCode,
+        offerCode: u.affiliate?.offerCode ?? null,
         totalEarn,
         createdAt: u.createdAt,
       };
@@ -206,8 +209,12 @@ export class UserService {
         role: true,
         isBlock: true,
         resonable: true,
-        offerCode: true,
-        totalEarn: true,
+        affiliate: {
+          select: {
+            offerCode: true,
+            totalEarn: true,
+          },
+        },
         createdAt: true,
       },
     });
@@ -239,16 +246,20 @@ export class UserService {
       role: updatedUser.role,
       isBlock: updatedUser.isBlock,
       resonable: updatedUser.resonable,
-      offerCode: updatedUser.offerCode,
-      totalEarn: updatedUser.role === Role.SELLER ? Number(updatedUser.totalEarn) : null,
+      offerCode: updatedUser.affiliate?.offerCode ?? null,
+      totalEarn:
+        updatedUser.role === Role.SELLER
+          ? Number(updatedUser.affiliate?.totalEarn ?? 0)
+          : null,
       createdAt: updatedUser.createdAt,
     };
   }
 
   /**
    * Promotes or demotes user role between CUSTOMER and SELLER.
-   * - type = 'promote': CUSTOMER -> SELLER (generates unique 12-character offerCode, totalEarn initialized to 0)
-   * - type = 'demote': SELLER -> CUSTOMER (nullifies offerCode, totalEarn reset to 0)
+   * Updates user role:
+   * - type = 'promote': Disabled directly. Users can only be promoted to SELLER by approving their affiliate application.
+   * - type = 'demote': SELLER -> CUSTOMER. Demotes seller while preserving their affiliate record and offer code.
    */
   async updateUserRole(
     dto: UpdateUserRoleDto,
@@ -267,33 +278,11 @@ export class UserService {
     }
 
     let targetRole: Role;
-    let offerCode: string | null = user.offerCode;
-    let totalEarn = user.totalEarn;
 
     if (query.type === RoleUpdateType.PROMOTE) {
-      if (user.role === Role.SELLER) {
-        throw new BadRequestException('User is already a SELLER');
-      }
-      if (user.role !== Role.CUSTOMER) {
-        throw new BadRequestException(`Cannot promote user with role ${user.role}`);
-      }
-      targetRole = Role.SELLER;
-
-      // If user already had an offerCode from previous seller tenure, reuse it!
-      // Otherwise, generate a unique 12-character offerCode
-      if (!offerCode) {
-        let code = generateOfferCode();
-        let attempts = 0;
-        while (attempts < 10) {
-          const existing = await this.prisma.user.findUnique({
-            where: { offerCode: code },
-          });
-          if (!existing) break;
-          code = generateOfferCode();
-          attempts++;
-        }
-        offerCode = code;
-      }
+      throw new BadRequestException(
+        'Users can only be promoted to SELLER by approving their affiliate application in Admin Affiliate Management.',
+      );
     } else if (query.type === RoleUpdateType.DEMOTE) {
       if (user.role === Role.CUSTOMER) {
         throw new BadRequestException('User is already a CUSTOMER');
@@ -302,21 +291,16 @@ export class UserService {
         throw new BadRequestException(`Cannot demote user with role ${user.role}`);
       }
       targetRole = Role.CUSTOMER;
-      // Do NOT nullify offerCode: preserve user.offerCode in database so it is retained!
-      offerCode = user.offerCode;
     } else {
       throw new BadRequestException(
         "Invalid action type. Expected 'promote' or 'demote'",
       );
     }
 
-
     const updatedUser = await this.prisma.user.update({
       where: { id: dto.userId },
       data: {
         role: targetRole,
-        offerCode,
-        totalEarn,
       },
       select: {
         id: true,
@@ -325,8 +309,12 @@ export class UserService {
         role: true,
         isBlock: true,
         resonable: true,
-        offerCode: true,
-        totalEarn: true,
+        affiliate: {
+          select: {
+            offerCode: true,
+            totalEarn: true,
+          },
+        },
         createdAt: true,
       },
     });
@@ -338,8 +326,11 @@ export class UserService {
       role: updatedUser.role,
       isBlock: updatedUser.isBlock,
       resonable: updatedUser.resonable,
-      offerCode: updatedUser.offerCode,
-      totalEarn: updatedUser.role === Role.SELLER ? Number(updatedUser.totalEarn) : null,
+      offerCode: updatedUser.affiliate?.offerCode ?? null,
+      totalEarn:
+        updatedUser.role === Role.SELLER
+          ? Number(updatedUser.affiliate?.totalEarn ?? 0)
+          : null,
       createdAt: updatedUser.createdAt,
     };
   }

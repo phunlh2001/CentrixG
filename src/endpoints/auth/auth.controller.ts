@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Get,
   HttpCode,
   HttpStatus,
   Ip,
@@ -8,6 +9,7 @@ import {
 } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
+  ApiBearerAuth,
   ApiConflictResponse,
   ApiCreatedResponse,
   ApiForbiddenResponse,
@@ -18,6 +20,7 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { Public } from '../../common/decorators/public.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { MessageResponseDto } from '../../common/dto/message-response.dto';
 import { AuthService } from './auth.service';
 import {
@@ -26,6 +29,7 @@ import {
   RefreshTokenDto,
   RegisterDto,
   RevokeTokenDto,
+  UserModel,
   VerifyCodeDto,
 } from '@app/shared';
 
@@ -105,5 +109,21 @@ export class AuthController {
   async revoke(@Body() dto: RevokeTokenDto): Promise<MessageResponseDto> {
     await this.authService.revoke(dto.refreshToken);
     return { message: 'Refresh token revoked successfully' };
+  }
+
+  @Get('me')
+  @ApiBearerAuth('access-token')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Get profile information of currently authenticated user',
+    description: 'Returns user profile including id, username, email, role, and totalEarn.',
+  })
+  @ApiOkResponse({
+    type: UserModel,
+    description: 'Current user profile with role and totalEarn',
+  })
+  @ApiUnauthorizedResponse({ description: 'Unauthorized or missing Bearer token' })
+  getMe(@CurrentUser('id') userId: string): Promise<UserModel> {
+    return this.authService.getMe(userId);
   }
 }

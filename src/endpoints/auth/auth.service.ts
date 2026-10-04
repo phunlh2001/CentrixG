@@ -9,7 +9,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { Role, User } from '../../prisma/prisma-client';
+import { PaymentStatus, Role, User } from '../../prisma/prisma-client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { JwtPayload } from '../../common/interfaces/authenticated-user.interface';
 import { generateOpaqueToken } from '../../common/utils/token.util';
@@ -179,7 +179,7 @@ export class AuthService {
       );
     }
 
-    await this.checkAndRecordLoginLimit(user, ipAddress);
+    // await this.checkAndRecordLoginLimit(user, ipAddress);
     return this.issueTokens(user, ipAddress);
   }
 
@@ -218,13 +218,17 @@ export class AuthService {
       ipAddress,
     );
 
+    const userResponse = await this.toUserResponse(user);
+
     return {
       accessToken: await this.signAccessToken(user),
       refreshToken: newRefreshToken,
       expiresIn: Math.floor(
         this.parseDurationToMs(this.accessExpiresIn) / 1000,
       ),
-      user: this.toUserResponse(user),
+      role: user.role,
+      totalEarn: userResponse.totalEarn ?? 0,
+      user: userResponse,
     };
   }
 
@@ -273,13 +277,17 @@ export class AuthService {
       ipAddress,
     );
 
+    const userResponse = await this.toUserResponse(user);
+
     return {
       accessToken: await this.signAccessToken(user),
       refreshToken,
       expiresIn: Math.floor(
         this.parseDurationToMs(this.accessExpiresIn) / 1000,
       ),
-      user: this.toUserResponse(user),
+      role: user.role,
+      totalEarn: userResponse.totalEarn ?? 0,
+      user: userResponse,
     };
   }
 
@@ -297,17 +305,49 @@ export class AuthService {
     });
   }
 
-  private toUserResponse(user: User): AuthTokensDto['user'] {
+  private async toUserResponse(user: User): Promise<AuthTokensDto['user']> {
+    const affiliate = await this.prisma.affiliate.findUnique({
+      where: { userId: user.id },
+      select: { offerCode: true, totalEarn: true },
+    });
+
+    let totalEarn = affiliate ? Number(affiliate.totalEarn || 0) : 0;
+
+    if (totalEarn === 0 && (user.role === Role.SELLER || affiliate)) {
+      const ordersSum = await this.prisma.order.aggregate({
+        where: {
+          sellerId: user.id,
+          status: PaymentStatus.COMPLETED,
+        },
+        _sum: {
+          commissionAmount: true,
+        },
+      });
+      const orderCommission = Number(ordersSum._sum.commissionAmount ?? 0);
+      if (orderCommission > 0) {
+        totalEarn = orderCommission;
+      }
+    }
+
     return {
       id: user.id,
       username: user.username,
       email: user.email,
       role: user.role,
       isBlock: user.isBlock,
-      offerCode: user.offerCode,
-      totalEarn:
-        user.role === Role.SELLER ? Number(user.totalEarn ?? 0) : null,
+      totalEarn,
     };
+  }
+
+  /**
+   * Retrieves profile information for the authenticated user, including role and totalEarn.
+   */
+  async getMe(userId: string): Promise<AuthTokensDto['user']> {
+    const user = await this.userService.findById(userId);
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+    return this.toUserResponse(user);
   }
 
   private parseDurationToMs(value: string): number {

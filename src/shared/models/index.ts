@@ -6,3 +6,4 @@ export * from './third-party';
 export * from './order';
 export * from './payment';
 export * from './admin';
+export * from './affiliate';

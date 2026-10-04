@@ -197,8 +197,8 @@ export class SepayService {
         order.commissionAmount &&
         Number(order.commissionAmount) > 0
       ) {
-        await tx.user.update({
-          where: { id: order.sellerId },
+        await tx.affiliate.updateMany({
+          where: { userId: order.sellerId },
           data: {
             totalEarn: {
               increment: order.commissionAmount,
