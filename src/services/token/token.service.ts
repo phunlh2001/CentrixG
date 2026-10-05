@@ -3,11 +3,11 @@ import { PrismaService } from '@app/prisma/prisma.service';
 import { Token } from '@app/prisma/prisma-client';
 
 /**
- * Manages persisted refresh tokens.
+ * Manages persisted refresh tokens and active access token sessions.
  *
  * Design rules (per spec):
- *  - Only refresh tokens are stored.
- *  - "Revoke" == delete the row.
+ *  - Refresh tokens and active access token IDs are stored in the tokens table.
+ *  - "Revoke" == hard-delete the row.
  *  - An expired token can never be used.
  */
 @Injectable()
@@ -15,7 +15,7 @@ export class TokenService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * Persists a freshly issued refresh token for a user.
+   * Persists a freshly issued refresh token and access token ID for a user.
    */
   async save(
     userId: string,
@@ -45,7 +45,7 @@ export class TokenService {
     });
 
     if (!stored) {
-      throw new UnauthorizedException('Refresh token not recognized');
+      throw new UnauthorizedException('Refresh token not recognized or already revoked');
     }
 
     if (stored.expiredAt.getTime() <= Date.now()) {
@@ -59,15 +59,33 @@ export class TokenService {
   }
 
   /**
-   * Revokes (deletes) a single refresh token. Idempotent: revoking an
-   * already-removed token succeeds silently.
+   * Updates only the access token ID (token column) on the existing session record.
+   * This immediately revokes the old access token while preserving the existing
+   * refreshToken code and its original expiration timestamp.
+   */
+  async updateAccessToken(
+    id: string,
+    newAccessTokenId: string,
+    ipAddress?: string,
+  ): Promise<Token> {
+    return this.prisma.token.update({
+      where: { id },
+      data: {
+        token: newAccessTokenId,
+        ...(ipAddress ? { ipAddress } : {}),
+      },
+    });
+  }
+
+  /**
+   * Hard-deletes a single token row by refreshToken. Idempotent.
    */
   async revoke(refreshToken: string): Promise<void> {
     await this.prisma.token.deleteMany({ where: { refreshToken } });
   }
 
   /**
-   * Revokes every refresh token belonging to a user (e.g. full logout).
+   * Hard-deletes every token belonging to a user (revoking all active access and refresh tokens).
    */
   async revokeAllForUser(userId: string): Promise<void> {
     await this.prisma.token.deleteMany({ where: { userId } });

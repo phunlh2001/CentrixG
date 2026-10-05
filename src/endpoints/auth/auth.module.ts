@@ -23,7 +23,7 @@ import { CONFIG_ENV } from '@app/common/constants';
       useFactory: (config: ConfigService) => ({
         secret: config.getOrThrow<string>(CONFIG_ENV.jwtAccessSecret),
         signOptions: {
-          expiresIn: config.get<string>(CONFIG_ENV.jwtAccessExpiresIn, '15m'),
+          expiresIn: config.get<string>(CONFIG_ENV.jwtAccessExpiresIn, '15d'),
         },
       }),
     }),

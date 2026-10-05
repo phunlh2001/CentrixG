@@ -21,6 +21,7 @@ import {
   AuthTokensDto,
   LoginDto,
   RegisterDto,
+  UserModel,
   VerifyCodeDto,
 } from '@app/shared';
 import { MailService } from '../../services/mail/mail.service';
@@ -40,7 +41,7 @@ export class AuthService {
     private readonly config: ConfigService,
     private readonly mailService: MailService,
   ) {
-    this.accessExpiresIn = this.config.get<string>(CONFIG_ENV.jwtAccessExpiresIn, '15m');
+    this.accessExpiresIn = this.config.get<string>(CONFIG_ENV.jwtAccessExpiresIn, '15d');
     this.refreshTtlMs = this.parseDurationToMs(this.config.get<string>(CONFIG_ENV.jwtRefreshExpiresIn, '30d'));
   }
 
@@ -184,56 +185,75 @@ export class AuthService {
   }
 
   /**
-   * Validates a refresh token, then issues a new access token and rotates
-   * the refresh token. (Refresh token rotation is unrestricted).
+   * Validates a refresh token, then refreshes the accessToken with the newest user information
+   * without changing the expiresIn time of the refreshToken or its code.
+   * If validation fails or account is restricted, hard-deletes the token row from DB (revokes both).
+   * Revokes the old accessToken by updating the active token session ID.
    */
   async refresh(
     refreshToken: string,
     ipAddress: string = '127.0.0.1',
   ): Promise<AuthTokensDto> {
-    const stored = await this.tokenService.validateOrThrow(refreshToken);
+    const stored = await this.prisma.token.findUnique({
+      where: { refreshToken },
+    });
+
+    if (!stored) {
+      throw new UnauthorizedException('Refresh token not recognized or already revoked');
+    }
+
+    // Check expiration
+    if (stored.expiredAt.getTime() <= Date.now()) {
+      await this.prisma.token.deleteMany({ where: { id: stored.id } });
+      throw new UnauthorizedException('Refresh token has expired');
+    }
+
     const user = await this.userService.findById(stored.userId);
 
-    if (!user) {
-      await this.tokenService.revoke(refreshToken);
+    // If user no longer exists or is blocked, revoke both (hard-delete token row)
+    if (!user || user.isBlock) {
+      await this.prisma.token.deleteMany({ where: { id: stored.id } });
+      if (user?.isBlock) {
+        throw new ForbiddenException(
+          'Your account has been restricted by an administrator.',
+        );
+      }
       throw new UnauthorizedException('User no longer exists');
     }
 
-    if (user.isBlock) {
-      throw new ForbiddenException(
-        'Your account has been restricted by an administrator.',
-      );
-    }
-
+    // Validator passed!
+    // 1. Generate new accessTokenId to revoke the old access token
     const newAccessTokenId = generateOpaqueToken();
-    const newRefreshToken = generateOpaqueToken();
-    const expiredAt = new Date(Date.now() + this.refreshTtlMs);
 
-    await this.tokenService.rotate(
-      refreshToken,
-      user.id,
+    // 2. Update token record: replace old accessTokenId with newAccessTokenId,
+    // WITHOUT changing refreshToken code or its original expiredAt!
+    await this.tokenService.updateAccessToken(
+      stored.id,
       newAccessTokenId,
-      newRefreshToken,
-      expiredAt,
       ipAddress,
     );
 
-    const userResponse = await this.toUserResponse(user);
+    // 3. Resolve user affiliate information
+    const affiliateInfo = await this.getAffiliateInfo(user.id, user.role);
+
+    // 4. Sign fresh 15-day access token embedding newest user profile and new jti
+    const accessToken = await this.signAccessToken(
+      user,
+      affiliateInfo,
+      newAccessTokenId,
+    );
 
     return {
-      accessToken: await this.signAccessToken(user),
-      refreshToken: newRefreshToken,
+      accessToken,
+      refreshToken: stored.refreshToken, // Preserved exact refresh token code
       expiresIn: Math.floor(
         this.parseDurationToMs(this.accessExpiresIn) / 1000,
       ),
-      role: user.role,
-      totalEarn: userResponse.totalEarn ?? 0,
-      user: userResponse,
     };
   }
 
   /**
-   * Revokes (deletes) a refresh token so it can no longer be used.
+   * Hard-deletes a refresh token and its session from the database.
    */
   async revoke(refreshToken: string): Promise<void> {
     await this.tokenService.revoke(refreshToken);
@@ -259,15 +279,19 @@ export class AuthService {
   }
 
   /**
-   * Issues a fresh access token plus a persisted refresh token.
+   * Issues a fresh access token (15 days) and persisted refresh token (30 days).
+   * Revokes any previously active access tokens for this user before issuing new ones.
    */
   private async issueTokens(
     user: User,
     ipAddress: string,
   ): Promise<AuthTokensDto> {
+    // 1. Revoke any previous active token sessions for this user (single-session rule)
+    await this.tokenService.revokeAllForUser(user.id);
+
     const accessTokenId = generateOpaqueToken();
     const refreshToken = generateOpaqueToken();
-    const expiredAt = new Date(Date.now() + this.refreshTtlMs);
+    const expiredAt = new Date(Date.now() + this.refreshTtlMs); // 30 days from login date
 
     await this.tokenService.save(
       user.id,
@@ -277,26 +301,39 @@ export class AuthService {
       ipAddress,
     );
 
-    const userResponse = await this.toUserResponse(user);
+    const affiliateInfo = await this.getAffiliateInfo(user.id, user.role);
+
+    const accessToken = await this.signAccessToken(
+      user,
+      affiliateInfo,
+      accessTokenId,
+    );
 
     return {
-      accessToken: await this.signAccessToken(user),
+      accessToken,
       refreshToken,
       expiresIn: Math.floor(
         this.parseDurationToMs(this.accessExpiresIn) / 1000,
       ),
-      role: user.role,
-      totalEarn: userResponse.totalEarn ?? 0,
-      user: userResponse,
     };
   }
 
-  private async signAccessToken(user: User): Promise<string> {
+  private async signAccessToken(
+    user: User,
+    affiliateInfo?: { totalEarn: number; offerCode?: string },
+    accessTokenId?: string,
+  ): Promise<string> {
     const payload: JwtPayload = {
       sub: user.id,
       username: user.username,
       email: user.email,
       role: user.role,
+      isBlocked: user.isBlock,
+      affiliate: {
+        totalEarn: Number(affiliateInfo?.totalEarn || 0),
+        offerCode: affiliateInfo?.offerCode || undefined,
+      },
+      ...(accessTokenId ? { jti: accessTokenId } : {}),
     };
 
     return this.jwtService.signAsync(payload, {
@@ -305,18 +342,21 @@ export class AuthService {
     });
   }
 
-  private async toUserResponse(user: User): Promise<AuthTokensDto['user']> {
+  private async getAffiliateInfo(
+    userId: string,
+    role: Role,
+  ): Promise<{ totalEarn: number; offerCode?: string }> {
     const affiliate = await this.prisma.affiliate.findUnique({
-      where: { userId: user.id },
+      where: { userId },
       select: { offerCode: true, totalEarn: true },
     });
 
     let totalEarn = affiliate ? Number(affiliate.totalEarn || 0) : 0;
 
-    if (totalEarn === 0 && (user.role === Role.SELLER || affiliate)) {
+    if (totalEarn === 0 && (role === Role.SELLER || affiliate)) {
       const ordersSum = await this.prisma.order.aggregate({
         where: {
-          sellerId: user.id,
+          sellerId: userId,
           status: PaymentStatus.COMPLETED,
         },
         _sum: {
@@ -330,24 +370,29 @@ export class AuthService {
     }
 
     return {
-      id: user.id,
-      username: user.username,
-      email: user.email,
-      role: user.role,
-      isBlock: user.isBlock,
       totalEarn,
+      offerCode: affiliate?.offerCode || undefined,
     };
   }
 
   /**
    * Retrieves profile information for the authenticated user, including role and totalEarn.
    */
-  async getMe(userId: string): Promise<AuthTokensDto['user']> {
+  async getMe(userId: string): Promise<UserModel> {
     const user = await this.userService.findById(userId);
     if (!user) {
       throw new UnauthorizedException('User not found');
     }
-    return this.toUserResponse(user);
+    const affiliateInfo = await this.getAffiliateInfo(user.id, user.role);
+
+    return {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      role: user.role,
+      isBlock: user.isBlock,
+      totalEarn: affiliateInfo.totalEarn,
+    };
   }
 
   private parseDurationToMs(value: string): number {

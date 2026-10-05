@@ -1,33 +1,19 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Role } from '../../../prisma/prisma-client';
-import { UserModel } from '../../models/user';
+import { ApiProperty } from '@nestjs/swagger';
 
 /**
  * Response returned by login, register and refresh operations.
+ * User profile information is embedded directly within the JWT access token.
  */
 export class AuthTokensDto {
-  @ApiProperty({ description: 'Short-lived JWT access token' })
+  @ApiProperty({ description: 'Short-lived JWT access token containing embedded user and affiliate profile' })
   accessToken: string;
 
   @ApiProperty({ description: 'Opaque long-lived refresh token' })
   refreshToken: string;
 
-  @ApiProperty({ example: 900, description: 'Access-token lifetime (seconds)' })
+  @ApiProperty({
+    example: 1296000,
+    description: 'Access-token lifetime in seconds (15 days = 1,296,000s)',
+  })
   expiresIn: number;
-
-  @ApiPropertyOptional({
-    enum: Role,
-    example: Role.CUSTOMER,
-    description: 'Role of the authenticated user (CUSTOMER, SELLER, MOD, ADMIN)',
-  })
-  role?: Role;
-
-  @ApiPropertyOptional({
-    example: 150000,
-    description: 'Total commission earned in VND',
-  })
-  totalEarn?: number;
-
-  @ApiProperty({ type: UserModel })
-  user: UserModel;
 }
